@@ -14,6 +14,19 @@ Single source of truth for how this project is structured and how to add anythin
 | Backend           | **Supabase** (`supabase_flutter`) | Auth, DB, Storage, Realtime                  |
 | Architecture      | **Clean Architecture** (3 layers) | Scalable, testable, feature-isolated         |
 
+### Design System (Material 3 · Clean · Modern)
+
+| Token       | Value                       | Usage                          |
+| ----------- | --------------------------- | ------------------------------ |
+| Font        | **Manrope** (all screens)   | Set in `AppTheme`              |
+| Primary     | `#22A34A` Sage Green        | Buttons, links, accents        |
+| Secondary   | `#14532D` Forest Green      | Emphasis, dark accents         |
+| Background  | `#F8FAF8` Warm White        | Light scaffold background      |
+
+All tokens live in `lib/core/theme/app_colors.dart` ([AppColors]) and are
+wired into `AppTheme`. Never hard-code hex values in screens — use
+`AppColors` or `context.colorScheme`.
+
 ---
 
 ## Project Layout
@@ -270,6 +283,7 @@ GoRoute(
 | **New exception**      | Add to `core/error/exceptions.dart`, map it in `FailureX.toFailure()`.                       |
 | **New failure**        | Add to `core/error/failures.dart`.                                                          |
 | **Theme change**       | Only in `core/theme/app_theme.dart`. Never style ad-hoc in screens.                          |
+| **Font**               | **Manrope** is the app font — registered in `pubspec.yaml`, set via `fontFamily` in `AppTheme`. |
 | **Supabase table**     | Enable **RLS** on every table. Add a model that mirrors the row. Query only from data sources. |
 | **Supabase client**    | Only via `ref.watch(supabaseClientProvider)`. Never `Supabase.instance` in features.         |
 | **New provider**       | Declare in the feature's `xxx_providers.dart`. Core providers go in `core/di/`.              |

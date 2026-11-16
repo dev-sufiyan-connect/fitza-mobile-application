@@ -33,11 +33,13 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Result<UserEntity>> signUpWithEmail({
     required String email,
     required String password,
+    String? fullName,
   }) async {
     try {
       final model = await _remoteDataSource.signUpWithEmail(
         email: email,
         password: password,
+        fullName: fullName,
       );
       return Success(model.toEntity());
     } catch (e) {

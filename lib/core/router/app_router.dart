@@ -2,27 +2,41 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fitza_mobile_application/core/di/core_providers.dart';
 import 'package:fitza_mobile_application/core/router/route_names.dart';
 import 'package:fitza_mobile_application/core/router/route_paths.dart';
 import 'package:fitza_mobile_application/features/auth/domain/entities/user_entity.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/providers/auth_providers.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/screens/login_screen.dart';
+import 'package:fitza_mobile_application/features/auth/presentation/screens/signup_screen.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/screens/splash_screen.dart';
 import 'package:fitza_mobile_application/features/home/presentation/screens/home_screen.dart';
 
-/// Listens to the auth stream and exposes it as a [ValueNotifier] so
-/// GoRouter can re-run redirects whenever the session changes.
-final _authListenableProvider = Provider<ValueNotifier<AsyncValue<UserEntity?>>>(
-  (ref) {
-    final notifier = ValueNotifier<AsyncValue<UserEntity?>>(
-      const AsyncValue.loading(),
-    );
-    ref.listen(authStateProvider, (_, next) => notifier.value = next);
-    ref.onDispose(notifier.dispose);
-    return notifier;
-  },
-  dependencies: [authStateProvider],
-);
+/// Bridges the Supabase auth stream into a [ValueNotifier] so GoRouter can
+/// re-run redirects whenever the session changes.
+///
+/// Note: this subscribes to the stream directly instead of using
+/// `ref.listen(authStateProvider)` — Riverpod 3 forbids `ref.listen` inside
+/// providers unless every dependency is declared, and we don't want scoped
+/// providers for routing.
+final _authListenableProvider =
+    Provider<ValueNotifier<AsyncValue<UserEntity?>>>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final notifier = ValueNotifier<AsyncValue<UserEntity?>>(
+    const AsyncValue.loading(),
+  );
+
+  final sub = client.auth.onAuthStateChange.listen(
+    (event) => notifier.value = AsyncValue.data(userFromAuthState(event)),
+    onError: (Object e) => notifier.value = AsyncValue.error(e, StackTrace.current),
+  );
+
+  ref.onDispose(() {
+    sub.cancel();
+    notifier.dispose();
+  });
+  return notifier;
+});
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authListenable = ref.watch(_authListenableProvider);
@@ -33,10 +47,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: kDebugMode,
     redirect: (context, state) {
       final auth = authListenable.value;
-      final isResolvingSession = auth.isLoading || !auth.hasValue && !auth.hasError;
+      final isResolvingSession =
+          auth.isLoading || (!auth.hasValue && !auth.hasError);
       final isLoggedIn = auth.value != null;
       final isOnSplash = state.matchedLocation == RoutePaths.splash;
-      final isOnAuth = state.matchedLocation == RoutePaths.login;
+      final isOnAuth = state.matchedLocation == RoutePaths.login ||
+          state.matchedLocation == RoutePaths.signup;
 
       // While the session is being resolved, hold on splash.
       if (isResolvingSession) {
@@ -65,6 +81,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.login,
         name: RouteNames.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.signup,
+        name: RouteNames.signup,
+        builder: (context, state) => const SignUpScreen(),
       ),
       GoRoute(
         path: RoutePaths.home,

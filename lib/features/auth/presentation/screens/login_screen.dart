@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fitza_mobile_application/core/config/app_config.dart';
 import 'package:fitza_mobile_application/core/router/route_names.dart';
+import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/theme/app_theme.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/providers/auth_providers.dart';
+import 'package:fitza_mobile_application/features/auth/presentation/widgets/auth_assets.dart';
+import 'package:fitza_mobile_application/features/auth/presentation/widgets/auth_hills_decoration.dart';
+import 'package:fitza_mobile_application/features/auth/presentation/widgets/auth_text_field.dart';
+import 'package:fitza_mobile_application/features/auth/presentation/widgets/fitza_brand_header.dart';
+import 'package:fitza_mobile_application/features/auth/presentation/widgets/gradient_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -18,7 +23,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -49,88 +53,211 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
+    final isLoading = ref.watch(authControllerProvider).isLoading;
 
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Form(
-              key: _formKey,
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          // Soft green hills + sun decoration, top-right
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 240,
+            child: AuthHillsDecoration(),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'Welcome to ${AppConfig.appName}',
-                    style: context.textTheme.headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: FitzaBrandHeader(markSize: 52),
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
+                  Text(
+                    'Welcome Back 👋',
+                    style: context.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Email is required.';
-                      }
-                      if (!value.contains('@')) return 'Enter a valid email.';
-                      return null;
-                    },
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscurePassword = !_obscurePassword),
-                      ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Sign in to continue your journey with Fitza.',
+                    style: context.textTheme.bodyLarge?.copyWith(
+                      color: AppColors.mutedText,
+                      height: 1.4,
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Password is required.';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters.';
-                      }
-                      return null;
-                    },
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AuthTextField(
+                          controller: _emailController,
+                          hint: 'Email or phone number',
+                          prefixIcon: AuthAsset.mail,
+                          validator: AuthValidators.identifier,
+                          enabled: !isLoading,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AuthTextField(
+                          controller: _passwordController,
+                          hint: 'Password',
+                          prefixIcon: AuthAsset.lock,
+                          validator: AuthValidators.password,
+                          isPassword: true,
+                          enabled: !isLoading,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: isLoading ? null : () {},
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.xs),
+                            ),
+                            child: const Text(
+                              'Forgot password?',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        GradientButton(
+                          label: 'Log In',
+                          isLoading: isLoading,
+                          onPressed: _submit,
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  FilledButton(
-                    onPressed: authState.isLoading ? null : _submit,
-                    child: authState.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Sign in'),
+                  const _OrContinueWithDivider(),
+                  const SizedBox(height: AppSpacing.lg),
+                  const Row(
+                    children: [
+                      Expanded(child: _SocialButton.google()),
+                      SizedBox(width: AppSpacing.md),
+                      Expanded(child: _SocialButton.apple()),
+                    ],
                   ),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _SignUpRow(),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+class _OrContinueWithDivider extends StatelessWidget {
+  const _OrContinueWithDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: Color(0xFFE3E8E3))),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Text(
+            'OR CONTINUE WITH',
+            style: context.textTheme.labelSmall?.copyWith(
+              color: AppColors.mutedText,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(color: Color(0xFFE3E8E3))),
+      ],
+    );
+  }
+}
+
+class _SocialButton extends StatelessWidget {
+  const _SocialButton.google() : _icon = AuthAsset.google, label = 'Google';
+
+  const _SocialButton.apple() : _icon = AuthAsset.apple, label = 'Apple';
+
+  final String _icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: () {},
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.textDark,
+        minimumSize: const Size.fromHeight(52),
+        side: const BorderSide(color: Color(0xFFE3E8E3)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
         ),
       ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AuthIcon(_icon, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignUpRow extends StatelessWidget {
+  const _SignUpRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          "Don't have an account?",
+          style: TextStyle(color: AppColors.mutedText),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        TextButton(
+          onPressed: () => context.pushNamed(RouteNames.signup),
+          style: TextButton.styleFrom(
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          ),
+          child: const Text(
+            'Sign Up',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,31 +1,50 @@
 import 'package:flutter/material.dart';
 
-/// Application-wide Material 3 theme.
-///
-/// Keep theme construction here. Screens must never hard-code colors,
-/// typography, or spacing — always read from `context.colorScheme` /
-/// `context.textTheme` / `AppSpacing`.
-abstract final class AppTheme {
-  static const seedColor = Color(0xFF16A34A);
+import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 
+/// Fitza Design System — Material 3 · Clean · Modern.
+///
+/// Brand palette lives in [AppColors]; this file composes it into themes.
+/// Screens must never hard-code colors, typography, or spacing — always
+/// read from `context.colorScheme` / `context.textTheme` / [AppSpacing].
+abstract final class AppTheme {
   static ThemeData light() {
-    final scheme = ColorScheme.fromSeed(seedColor: seedColor);
+    final scheme = ColorScheme.fromSeed(seedColor: AppColors.primary).copyWith(
+      primary: AppColors.primary,
+      onPrimary: AppColors.onPrimary,
+      secondary: AppColors.secondary,
+      onSecondary: AppColors.onPrimary,
+      surface: AppColors.background,
+      onSurface: AppColors.textDark,
+      error: AppColors.error,
+    );
     return _base(scheme);
   }
 
   static ThemeData dark() {
-    final scheme = ColorScheme.fromSeed(seedColor: seedColor, brightness: Brightness.dark);
+    final scheme = ColorScheme.fromSeed(
+      seedColor: AppColors.primary,
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: AppColors.primary,
+      onPrimary: AppColors.onPrimary,
+      secondary: AppColors.secondary,
+      surface: AppColors.surfaceDark,
+    );
     return _base(scheme);
   }
 
   static ThemeData _base(ColorScheme scheme) {
+    final isLight = scheme.brightness == Brightness.light;
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      fontFamily: 'Manrope',
       scaffoldBackgroundColor: scheme.surface,
       appBarTheme: AppBarTheme(
         centerTitle: true,
         backgroundColor: scheme.surface,
+        foregroundColor: isLight ? AppColors.textDark : null,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
@@ -37,6 +56,9 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
+        fillColor: isLight
+            ? Colors.white
+            : scheme.surfaceContainerHigh,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

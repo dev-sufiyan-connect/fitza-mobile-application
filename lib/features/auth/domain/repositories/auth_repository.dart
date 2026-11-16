@@ -11,6 +11,7 @@ abstract interface class AuthRepository {
   Future<Result<UserEntity>> signUpWithEmail({
     required String email,
     required String password,
+    String? fullName,
   });
 
   Future<Result<UserEntity>> getCurrentUser();

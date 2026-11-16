@@ -30,10 +30,14 @@ class AuthRemoteDataSource {
   Future<UserModel> signUpWithEmail({
     required String email,
     required String password,
+    String? fullName,
   }) async {
     try {
-      final response =
-          await _client.auth.signUp(email: email, password: password);
+      final response = await _client.auth.signUp(
+        email: email,
+        password: password,
+        data: fullName == null ? null : {'full_name': fullName},
+      );
       final user = response.user;
       if (user == null) {
         throw const AuthAppException('No user returned after sign up.');

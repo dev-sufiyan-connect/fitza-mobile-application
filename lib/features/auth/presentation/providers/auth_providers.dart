@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show AuthState;
 
 import 'package:fitza_mobile_application/core/di/core_providers.dart';
 import 'package:fitza_mobile_application/features/auth/data/datasources/auth_remote_data_source.dart';
@@ -7,6 +9,7 @@ import 'package:fitza_mobile_application/features/auth/data/repositories/auth_re
 import 'package:fitza_mobile_application/features/auth/domain/entities/user_entity.dart';
 import 'package:fitza_mobile_application/features/auth/domain/usecases/sign_in_with_email_usecase.dart';
 import 'package:fitza_mobile_application/features/auth/domain/usecases/sign_out_usecase.dart';
+import 'package:fitza_mobile_application/features/auth/domain/usecases/sign_up_with_email_usecase.dart';
 
 // ---------------------------------------------------------------------------
 // DI composition
@@ -22,6 +25,10 @@ final signInWithEmailUseCaseProvider = Provider<SignInWithEmailUseCase>((ref) {
   return SignInWithEmailUseCase(ref.watch(authRepositoryProvider));
 });
 
+final signUpWithEmailUseCaseProvider = Provider<SignUpWithEmailUseCase>((ref) {
+  return SignUpWithEmailUseCase(ref.watch(authRepositoryProvider));
+});
+
 final signOutUseCaseProvider = Provider<SignOutUseCase>((ref) {
   return SignOutUseCase(ref.watch(authRepositoryProvider));
 });
@@ -30,14 +37,17 @@ final signOutUseCaseProvider = Provider<SignOutUseCase>((ref) {
 // Session state — drives the router redirect
 // ---------------------------------------------------------------------------
 
+/// Maps a Supabase auth event into the domain user (or null when signed out).
+UserEntity? userFromAuthState(AuthState event) {
+  final user = event.session?.user;
+  return user == null ? null : UserModel.fromSupabaseUser(user).toEntity();
+}
+
 /// Emits the signed-in user (or null) whenever the Supabase session changes.
 /// This is the single source of truth for "is the user logged in".
 final authStateProvider = StreamProvider<UserEntity?>((ref) {
   final client = ref.watch(supabaseClientProvider);
-  return client.auth.onAuthStateChange.map((event) {
-    final user = event.session?.user;
-    return user == null ? null : UserModel.fromSupabaseUser(user).toEntity();
-  });
+  return client.auth.onAuthStateChange.map(userFromAuthState);
 });
 
 // ---------------------------------------------------------------------------
@@ -61,6 +71,27 @@ class AuthController extends AsyncNotifier<UserEntity?> {
     final result = await ref
         .read(signInWithEmailUseCaseProvider)
         .call(email: email, password: password);
+    return result.when(
+      onSuccess: (user) {
+        state = AsyncData(user);
+        return true;
+      },
+      onFailure: (failure) {
+        state = AsyncError(failure, StackTrace.current);
+        return false;
+      },
+    );
+  }
+
+  Future<bool> signUp({
+    required String fullName,
+    required String email,
+    required String password,
+  }) async {
+    state = const AsyncLoading();
+    final result = await ref
+        .read(signUpWithEmailUseCaseProvider)
+        .call(fullName: fullName, email: email, password: password);
     return result.when(
       onSuccess: (user) {
         state = AsyncData(user);
