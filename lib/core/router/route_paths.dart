@@ -1,0 +1,7 @@
+/// Canonical route paths. Kept separate from [RouteNames] so paths and
+/// names can evolve independently (e.g. adding nested routes/shell routes).
+abstract final class RoutePaths {
+  static const String splash = '/';
+  static const String login = '/login';
+  static const String home = '/home';
+}
