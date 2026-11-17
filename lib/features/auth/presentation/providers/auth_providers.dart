@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
-    show AuthState;
+    show AuthState, User;
 
 import 'package:fitza_mobile_application/core/di/core_providers.dart';
 import 'package:fitza_mobile_application/features/auth/data/datasources/auth_remote_data_source.dart';
@@ -37,10 +37,14 @@ final signOutUseCaseProvider = Provider<SignOutUseCase>((ref) {
 // Session state — drives the router redirect
 // ---------------------------------------------------------------------------
 
+/// Maps a Supabase user into the domain user (null when signed out).
+UserEntity? userFromSupabaseUser(User? user) {
+  return user == null ? null : UserModel.fromSupabaseUser(user).toEntity();
+}
+
 /// Maps a Supabase auth event into the domain user (or null when signed out).
 UserEntity? userFromAuthState(AuthState event) {
-  final user = event.session?.user;
-  return user == null ? null : UserModel.fromSupabaseUser(user).toEntity();
+  return userFromSupabaseUser(event.session?.user);
 }
 
 /// Emits the signed-in user (or null) whenever the Supabase session changes.

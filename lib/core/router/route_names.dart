@@ -7,4 +7,8 @@ abstract final class RouteNames {
   static const String login = 'login';
   static const String signup = 'signup';
   static const String home = 'home';
+  static const String fitness = 'fitness';
+  static const String nutrition = 'nutrition';
+  static const String progress = 'progress';
+  static const String profile = 'profile';
 }

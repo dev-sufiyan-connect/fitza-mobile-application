@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
 
 /// Shared path of the login asset pack. Keep in sync with pubspec.yaml.
 abstract final class AuthAsset {
@@ -17,23 +16,6 @@ abstract final class AuthAsset {
   static const String apple = '$_base/apple.svg';
 }
 
-/// Tinted asset icon from the Fitza icon set.
-class AuthIcon extends StatelessWidget {
-  const AuthIcon(this.asset, {super.key, this.size = 22, this.color});
-
-  final String asset;
-  final double size;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      asset,
-      width: size,
-      height: size,
-      colorFilter: color == null
-          ? null
-          : ColorFilter.mode(color!, BlendMode.srcIn),
-    );
-  }
-}
+/// Auth-pack icon. Alias of the shared [AssetIcon] so existing call sites
+/// keep working.
+typedef AuthIcon = AssetIcon;

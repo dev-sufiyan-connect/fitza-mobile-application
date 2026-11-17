@@ -10,7 +10,12 @@ import 'package:fitza_mobile_application/features/auth/presentation/providers/au
 import 'package:fitza_mobile_application/features/auth/presentation/screens/login_screen.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/screens/signup_screen.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/screens/splash_screen.dart';
+import 'package:fitza_mobile_application/features/fitness/presentation/screens/fitness_screen.dart';
 import 'package:fitza_mobile_application/features/home/presentation/screens/home_screen.dart';
+import 'package:fitza_mobile_application/features/nutrition/presentation/screens/nutrition_screen.dart';
+import 'package:fitza_mobile_application/features/profile/presentation/screens/profile_screen.dart';
+import 'package:fitza_mobile_application/features/progress/presentation/screens/progress_screen.dart';
+import 'package:fitza_mobile_application/core/widgets/fitza_shell.dart';
 
 /// Bridges the Supabase auth stream into a [ValueNotifier] so GoRouter can
 /// re-run redirects whenever the session changes.
@@ -23,7 +28,10 @@ final _authListenableProvider =
     Provider<ValueNotifier<AsyncValue<UserEntity?>>>((ref) {
   final client = ref.watch(supabaseClientProvider);
   final notifier = ValueNotifier<AsyncValue<UserEntity?>>(
-    const AsyncValue.loading(),
+    // Seed synchronously from the current session. The auth stream only
+    // emits on *changes* — its initial event may already have fired during
+    // Supabase.initialize, so waiting on it would leave us stuck on splash.
+    AsyncValue.data(userFromSupabaseUser(client.auth.currentUser)),
   );
 
   final sub = client.auth.onAuthStateChange.listen(
@@ -64,8 +72,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return RoutePaths.home;
       }
 
-      // Guests never see protected screens.
-      if (!isLoggedIn && !isOnAuth) {
+      // TODO(temp): guest protection on protected tabs is disabled for the
+      // UI preview. Splash must still move on — otherwise a signed-out user
+      // would sit on the spinner forever.
+      if (isOnSplash) {
         return RoutePaths.login;
       }
 
@@ -87,10 +97,56 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: RouteNames.signup,
         builder: (context, state) => const SignUpScreen(),
       ),
-      GoRoute(
-        path: RoutePaths.home,
-        name: RouteNames.home,
-        builder: (context, state) => const HomeScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            FitzaShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.home,
+                name: RouteNames.home,
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.fitness,
+                name: RouteNames.fitness,
+                builder: (context, state) => const FitnessScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.nutrition,
+                name: RouteNames.nutrition,
+                builder: (context, state) => const NutritionScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.progress,
+                name: RouteNames.progress,
+                builder: (context, state) => const ProgressScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.profile,
+                name: RouteNames.profile,
+                builder: (context, state) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );

@@ -32,23 +32,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    // TODO(temp): auth is not connected yet (no Supabase credentials/DB).
+    // Skip validation + auth call and go straight to the dashboard.
+    context.goNamed(RouteNames.home);
 
-    final success = await ref.read(authControllerProvider.notifier).signIn(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
-
-    if (!mounted) return;
-    if (success) {
-      context.goNamed(RouteNames.home);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sign in failed. Check your credentials.'),
-        ),
-      );
-    }
+    // if (!(_formKey.currentState?.validate() ?? false)) return;
+    //
+    // final success = await ref
+    //     .read(authControllerProvider.notifier)
+    //     .signIn(
+    //       email: _emailController.text.trim(),
+    //       password: _passwordController.text,
+    //     );
+    //
+    // if (!mounted) return;
+    // if (success) {
+    //   context.goNamed(RouteNames.home);
+    // } else {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(
+    //       content: Text('Sign in failed. Check your credentials.'),
+    //     ),
+    //   );
+    // }
   }
 
   @override
@@ -70,7 +76,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -124,7 +134,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: isLoading ? null : () {},
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.xs),
+                                horizontal: AppSpacing.xs,
+                              ),
                             ),
                             child: const Text(
                               'Forgot password?',
@@ -213,10 +224,7 @@ class _SocialButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(52),
         side: const BorderSide(color: Color(0xFFE3E8E3)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        textStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-        ),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -246,8 +254,7 @@ class _SignUpRow extends StatelessWidget {
         TextButton(
           onPressed: () => context.pushNamed(RouteNames.signup),
           style: TextButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
           ),
           child: const Text(
             'Sign Up',

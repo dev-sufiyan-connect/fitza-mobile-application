@@ -36,24 +36,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
-    final success = await ref.read(authControllerProvider.notifier).signUp(
-          fullName: _fullNameController.text.trim(),
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
-
-    if (!mounted) return;
-    if (success) {
-      context.goNamed(RouteNames.home);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sign up failed. Please try again.'),
-        ),
-      );
-    }
+    // TODO(temp): auth is not connected yet (no Supabase credentials/DB).
+    // Skip validation + auth call and go straight to the dashboard.
+    context.goNamed(RouteNames.home);
   }
 
   @override
