@@ -17,12 +17,9 @@ final homeDashboardProvider = FutureProvider<HomeDashboardEntity>((ref) async {
       ChecklistItemEntity(label: 'Tasks', value: '3 / 5', isComplete: false),
     ],
     stats: [
-      StatChipEntity(
-          title: '90.0 kg', subtitle: 'Current Weight', icon: 'scale'),
-      StatChipEntity(
-          title: '7h 20m', subtitle: "Last Night's Sleep", icon: 'moon'),
-      StatChipEntity(
-          title: '1,350 kcal', subtitle: 'Calories Consumed', icon: 'flame'),
+      StatChipEntity(title: '90.0 kg', subtitle: 'Weight', icon: 'scale'),
+      StatChipEntity(title: '7h 20m', subtitle: 'Sleep', icon: 'moon'),
+      StatChipEntity(title: '1,350 kcal', subtitle: 'Calories', icon: 'flame'),
     ],
     plan: [
       PlanItemEntity(

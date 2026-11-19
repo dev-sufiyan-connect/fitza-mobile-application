@@ -113,7 +113,8 @@ class _ChecklistRow extends StatelessWidget {
   }
 }
 
-/// Row of three rounded stat chips (weight / sleep / calories).
+/// Single rounded card with three stats (weight / sleep / calories),
+/// separated by soft vertical dividers.
 class StatChipRow extends StatelessWidget {
   const StatChipRow({super.key, required this.stats});
 
@@ -121,55 +122,58 @@ class StatChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final (i, stat) in stats.indexed) ...[
-          if (i > 0) const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.md),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEDF3EC),
-                borderRadius: BorderRadius.circular(18),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDF3EC),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          for (final (i, stat) in stats.indexed) ...[
+            if (i > 0)
+              Container(
+                width: 1,
+                height: 34,
+                color: const Color(0xFFD7E4D3),
               ),
+            Expanded(
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // White rounded icon tile with a green icon
-                  Container(
-                    width: 38,
-                    height: 38,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: AssetIcon(
-                      HomeAsset.dashboardIcon(stat.icon),
-                      size: 21,
-                      color: AppColors.primary,
-                    ),
+                  AssetIcon(
+                    HomeAsset.dashboardIcon(stat.icon),
+                    size: 24,
+                    color: AppColors.primary,
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
+                  const SizedBox(width: 8),
+                  Flexible(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           stat.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w800,
                             color: AppColors.textDark,
+                            height: 1.15,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           stat.subtitle,
-                          maxLines: 2,
-                          style: context.textTheme.labelSmall?.copyWith(
-                              color: AppColors.mutedText, height: 1.15),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.mutedText,
+                            height: 1.15,
+                          ),
                         ),
                       ],
                     ),
@@ -177,9 +181,9 @@ class StatChipRow extends StatelessWidget {
                 ],
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -193,35 +197,40 @@ class PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Daily-tasks row uses a solid green tile with a white icon (Figma ref).
+    final isSolidTile = item.icon == 'check-square';
+
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md + 2),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFEEF2EE)),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFF0F3EF)),
           ),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEDF3EC),
-                  shape: BoxShape.circle,
+                decoration: BoxDecoration(
+                  color: isSolidTile
+                      ? AppColors.primary
+                      : const Color(0xFFEAF5E3),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: AssetIcon(
                   HomeAsset.dashboardIcon(item.icon),
-                  size: 22,
-                  color: AppColors.primary,
+                  size: 24,
+                  color: isSolidTile ? Colors.white : AppColors.primary,
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,44 +238,63 @@ class PlanCard extends StatelessWidget {
                     Text(
                       item.title,
                       style: const TextStyle(
-                        fontSize: 15.5,
+                        fontSize: 16.5,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textDark,
+                        height: 1.15,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       item.subtitle,
-                      style: context.textTheme.bodySmall
-                          ?.copyWith(color: AppColors.mutedText, fontSize: 12.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.mutedText,
+                        height: 1.2,
+                      ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
               if (item.badge != null) ...[
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE7F3E4),
+                    color: const Color(0xFFEAF5E3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     item.badge!,
                     style: const TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                       color: AppColors.secondary,
                     ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.xs),
-              ],
-              AssetIcon(
-                HomeAsset.chevronRight,
-                size: 22,
-                color: AppColors.mutedText,
-              ),
+                const SizedBox(width: 4),
+                const AssetIcon(
+                  HomeAsset.chevronRight,
+                  size: 20,
+                  color: AppColors.textDark,
+                ),
+              ] else
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFB9C2BB),
+                      width: 2,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

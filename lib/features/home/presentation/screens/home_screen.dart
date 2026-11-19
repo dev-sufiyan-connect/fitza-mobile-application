@@ -5,9 +5,9 @@ import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/theme/app_theme.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/providers/auth_providers.dart';
-import 'package:fitza_mobile_application/features/auth/presentation/widgets/auth_hills_decoration.dart';
 import 'package:fitza_mobile_application/features/home/presentation/providers/home_providers.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_assets.dart';
+import 'package:fitza_mobile_application/features/home/presentation/widgets/home_hills_decoration.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_widgets.dart';
 
 /// "Today" tab — the main dashboard.
@@ -23,8 +23,18 @@ class HomeScreen extends ConsumerWidget {
 
   String _todayLabel() {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final now = DateTime.now();
@@ -40,13 +50,13 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Soft sage hills behind the header
+          // Soft sage hills behind the header (Figma reference)
           const Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: 190,
-            child: AuthHillsDecoration(),
+            height: 300,
+            child: HomeHillsDecoration(),
           ),
           SafeArea(
             child: dashboard.when(
@@ -55,8 +65,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               error: (e, _) => Center(child: Text('$e')),
               data: (data) => ListView(
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+                padding: const EdgeInsets.all(12),
                 children: [
                   _Header(avatarPath: HomeAsset.avatar),
                   const SizedBox(height: AppSpacing.lg),
@@ -74,8 +83,9 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.md),
                   for (final item in data.plan) ...[
                     PlanCard(item: item),
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: 10),
                   ],
+                  const SizedBox(height: AppSpacing.sm),
                   const _StartWorkoutButton(),
                 ],
               ),
@@ -140,10 +150,7 @@ class _Header extends StatelessWidget {
           ],
         ),
         const SizedBox(width: AppSpacing.md),
-        CircleAvatar(
-          radius: 21,
-          backgroundImage: AssetImage(avatarPath),
-        ),
+        CircleAvatar(radius: 21, backgroundImage: AssetImage(avatarPath)),
       ],
     );
   }
@@ -171,8 +178,9 @@ class _Greeting extends StatelessWidget {
             children: [
               Text(
                 '$greeting 👋',
-                style: context.textTheme.titleMedium
-                    ?.copyWith(color: AppColors.mutedText),
+                style: context.textTheme.titleMedium?.copyWith(
+                  color: AppColors.mutedText,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -186,8 +194,10 @@ class _Greeting extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 "Let's stay consistent and make progress today!",
-                style: context.textTheme.bodyMedium
-                    ?.copyWith(color: AppColors.mutedText, height: 1.35),
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.mutedText,
+                  height: 1.35,
+                ),
               ),
             ],
           ),
@@ -202,8 +212,11 @@ class _Greeting extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const AssetIcon(HomeAsset.calendar,
-                  size: 16, color: AppColors.secondary),
+              const AssetIcon(
+                HomeAsset.calendar,
+                size: 16,
+                color: AppColors.secondary,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Text(
                 dateLabel,
@@ -231,6 +244,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           "Today's Plan",
           style: context.textTheme.titleLarge?.copyWith(
+            fontSize: 21,
             fontWeight: FontWeight.w800,
             color: AppColors.textDark,
           ),
@@ -239,16 +253,29 @@ class _SectionHeader extends StatelessWidget {
         TextButton(
           onPressed: () {},
           style: TextButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            foregroundColor: AppColors.primary,
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          child: const Text(
-            'View All  →',
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.secondary,
-            ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'View All',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+              SizedBox(width: 4),
+              Icon(
+                Icons.arrow_forward_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
+            ],
           ),
         ),
       ],
@@ -274,8 +301,9 @@ class _StartWorkoutButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
         ),
         icon: const Icon(Icons.play_circle_fill, size: 26),
         label: const Text(

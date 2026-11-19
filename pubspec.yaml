@@ -65,6 +65,7 @@ flutter:
   assets:
     - assets/fitza_login_assets/
     - assets/fitza_home_screen_assets/
+    - assets/fitza_bottom_nav_svg_pack/
 
   fonts:
     - family: Manrope

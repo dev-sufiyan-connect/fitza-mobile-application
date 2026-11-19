@@ -4,14 +4,20 @@ import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
 import 'package:go_router/go_router.dart';
 
-/// Asset paths for the bottom navigation icons (home screen pack).
+/// Asset paths for the bottom navigation icons.
+/// Filled variants render on the active tab, outline on the rest.
 abstract final class _NavIcons {
-  static const String _base = 'assets/fitza_home_screen_assets';
-  static const String home = '$_base/home.svg';
-  static const String dumbbell = '$_base/dumbbell.svg';
-  static const String meal = '$_base/meal.svg';
-  static const String chartProgress = '$_base/chart-progress.svg';
-  static const String user = '$_base/user.svg';
+  static const String _base = 'assets/fitza_bottom_nav_svg_pack';
+  static const String todayOutline = '$_base/today.svg';
+  static const String todayFilled = '$_base/today-filled.svg';
+  static const String fitnessOutline = '$_base/fitness.svg';
+  static const String fitnessFilled = '$_base/fitness-filled.svg';
+  static const String nutritionOutline = '$_base/nutrition.svg';
+  static const String nutritionFilled = '$_base/nutrition-filled.svg';
+  static const String progressOutline = '$_base/progress.svg';
+  static const String progressFilled = '$_base/progress-filled.svg';
+  static const String profileOutline = '$_base/profile.svg';
+  static const String profileFilled = '$_base/profile-filled.svg';
 }
 
 /// Scaffold shell hosting the tab navigation shell and the Fitza bottom bar.
@@ -23,11 +29,12 @@ class FitzaShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: navigationShell,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          color: AppColors.background,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
           boxShadow: [
             BoxShadow(
               color: AppColors.textDark.withValues(alpha: 0.06),
@@ -59,11 +66,31 @@ class FitzaShell extends StatelessWidget {
   }
 
   static const _items = [
-    (label: 'Today', icon: _NavIcons.home),
-    (label: 'Fitness', icon: _NavIcons.dumbbell),
-    (label: 'Nutrition', icon: _NavIcons.meal),
-    (label: 'Progress', icon: _NavIcons.chartProgress),
-    (label: 'Profile', icon: _NavIcons.user),
+    (
+      label: 'Today',
+      outline: _NavIcons.todayOutline,
+      filled: _NavIcons.todayFilled,
+    ),
+    (
+      label: 'Fitness',
+      outline: _NavIcons.fitnessOutline,
+      filled: _NavIcons.fitnessFilled,
+    ),
+    (
+      label: 'Nutrition',
+      outline: _NavIcons.nutritionOutline,
+      filled: _NavIcons.nutritionFilled,
+    ),
+    (
+      label: 'Progress',
+      outline: _NavIcons.progressOutline,
+      filled: _NavIcons.progressFilled,
+    ),
+    (
+      label: 'Profile',
+      outline: _NavIcons.profileOutline,
+      filled: _NavIcons.profileFilled,
+    ),
   ];
 }
 
@@ -74,13 +101,14 @@ class _NavItem extends StatelessWidget {
     required this.onTap,
   });
 
-  final ({String label, String icon}) item;
+  final ({String label, String outline, String filled}) item;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final color = selected ? AppColors.primary : AppColors.mutedText;
+    final icon = selected ? item.filled : item.outline;
 
     return InkWell(
       onTap: onTap,
@@ -89,13 +117,13 @@ class _NavItem extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 54,
-            height: 32,
+            width: 50,
+            height: 30,
             decoration: BoxDecoration(
               color: selected ? const Color(0xFFE7F3E4) : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: AssetIcon(item.icon, size: 22, color: color),
+            child: AssetIcon(icon, size: 10, color: color),
           ),
           const SizedBox(height: 2),
           Text(
@@ -106,6 +134,7 @@ class _NavItem extends StatelessWidget {
               color: color,
             ),
           ),
+          const SizedBox(height: 5),
         ],
       ),
     );
