@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fitza_mobile_application/core/router/route_names.dart';
 import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
@@ -40,7 +41,14 @@ class WorkoutDetailsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 14),
               for (final (i, exercise) in data.exercises.indexed)
-                _ExerciseRow(exercise: exercise, index: i),
+                _ExerciseRow(
+                  exercise: exercise,
+                  index: i,
+                  onTap: () => context.pushNamed(
+                    RouteNames.exerciseDetails,
+                    pathParameters: {'day': '$day', 'index': '$i'},
+                  ),
+                ),
               const SizedBox(height: 4),
               const _WarmUpCard(),
             ],
@@ -244,10 +252,15 @@ class _ProgressCard extends StatelessWidget {
 }
 
 class _ExerciseRow extends StatelessWidget {
-  const _ExerciseRow({required this.exercise, required this.index});
+  const _ExerciseRow({
+    required this.exercise,
+    required this.index,
+    this.onTap,
+  });
 
   final ExerciseEntity exercise;
   final int index;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -259,88 +272,98 @@ class _ExerciseRow extends StatelessWidget {
       Alignment.bottomLeft,
     ];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEFF1EC)),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
-              FitnessAsset.hero,
-              width: 52,
-              height: 52,
-              fit: BoxFit.cover,
-              alignment: alignments[index % alignments.length],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exercise.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textDark,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  exercise.setsReps,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.mutedText,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF5E3),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFEFF1EC)),
             ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                AssetIcon(
-                  HomeAsset.dumbbell,
-                  size: 13,
-                  color: AppColors.primary,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  'Log weight',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.secondary,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    FitnessAsset.hero,
+                    width: 52,
+                    height: 52,
+                    fit: BoxFit.cover,
+                    alignment: alignments[index % alignments.length],
                   ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exercise.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textDark,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        exercise.setsReps,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.mutedText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF5E3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AssetIcon(
+                        HomeAsset.dumbbell,
+                        size: 13,
+                        color: AppColors.primary,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Log weight',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const AssetIcon(
+                  HomeAsset.chevronRight,
+                  size: 18,
+                  color: AppColors.mutedText,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          const AssetIcon(
-            HomeAsset.chevronRight,
-            size: 18,
-            color: AppColors.mutedText,
-          ),
-        ],
+        ),
       ),
     );
   }

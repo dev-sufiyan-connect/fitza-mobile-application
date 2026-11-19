@@ -10,7 +10,9 @@ import 'package:fitza_mobile_application/features/auth/presentation/providers/au
 import 'package:fitza_mobile_application/features/auth/presentation/screens/login_screen.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/screens/signup_screen.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/screens/splash_screen.dart';
+import 'package:fitza_mobile_application/features/fitness/presentation/screens/exercise_details_screen.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/screens/fitness_screen.dart';
+import 'package:fitza_mobile_application/features/fitness/presentation/screens/workout_completed_screen.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/screens/workout_details_screen.dart';
 import 'package:fitza_mobile_application/features/home/presentation/screens/home_screen.dart';
 import 'package:fitza_mobile_application/features/nutrition/presentation/screens/nutrition_screen.dart';
@@ -157,6 +159,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      // Exercise detail lives above the shell so the bottom bar is hidden.
+      GoRoute(
+        path: '${RoutePaths.exerciseDetails}/:day/:index',
+        name: RouteNames.exerciseDetails,
+        builder: (context, state) => ExerciseDetailsScreen(
+          day: int.tryParse(state.pathParameters['day'] ?? '') ?? 1,
+          exerciseIndex: int.tryParse(state.pathParameters['index'] ?? '') ?? 0,
+        ),
+      ),
+      GoRoute(
+        path: '${RoutePaths.workoutCompleted}/:day',
+        name: RouteNames.workoutCompleted,
+        builder: (context, state) => WorkoutCompletedScreen(
+          day: int.tryParse(state.pathParameters['day'] ?? '') ?? 1,
+        ),
       ),
     ],
   );

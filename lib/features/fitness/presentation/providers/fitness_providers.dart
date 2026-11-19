@@ -89,3 +89,75 @@ final workoutDetailsProvider =
     exercises: _dayOneExercises,
   );
 });
+
+const _exerciseMuscles = [
+  'Upper Chest · Dumbbell',
+  'Shoulders · Dumbbell',
+  'Chest · Cable',
+  'Shoulders · Dumbbell',
+  'Triceps · Cable',
+  'Core · Cable',
+  'Neck · Bodyweight',
+];
+
+const _exerciseSets = [
+  ExerciseSetEntity(weight: 20, reps: 10, isCompleted: true),
+  ExerciseSetEntity(weight: 20, reps: 9, isCompleted: true),
+  ExerciseSetEntity(weight: 22.5, reps: 8, isCompleted: false),
+];
+
+/// Details for one exercise inside a workout day.
+/// [index] is 0-based within the day's exercise list.
+final exerciseDetailsProvider =
+    FutureProvider.family<ExerciseDetailsEntity, ({int day, int index})>(
+        (ref, key) async {
+  await Future<void>.delayed(const Duration(milliseconds: 250));
+
+  final workout = await ref.watch(workoutDetailsProvider(key.day).future);
+  final exercises = workout.exercises;
+  final index = key.index.clamp(0, exercises.length - 1);
+
+  return ExerciseDetailsEntity(
+    dayLabel:
+        'Day ${key.day.toString().padLeft(2, '0')} · ${workout.title}',
+    position: index + 1,
+    total: exercises.length,
+    name: exercises[index].name,
+    subtitle: _exerciseMuscles[index % _exerciseMuscles.length],
+    sets: '3',
+    reps: '8 – 10',
+    rest: '90 sec',
+    setRows: _exerciseSets,
+  );
+});
+
+/// Summary shown after the user finishes a workout day.
+final workoutCompletedProvider =
+    FutureProvider.family<WorkoutCompletedEntity, int>((ref, day) async {
+  await Future<void>.delayed(const Duration(milliseconds: 250));
+
+  final workout = await ref.watch(workoutDetailsProvider(day).future);
+
+  return WorkoutCompletedEntity(
+    dayTag: 'Day ${day.toString().padLeft(2, '0')}',
+    title: workout.title,
+    focus: workout.focus,
+    duration: '52 min',
+    exercisesCompleted: '7 / 7',
+    setsCompleted: '18 / 18',
+    calories: '410 kcal',
+    volume: '3,480 kg',
+    volumeChange: '+8%',
+    intensity: 'Moderate',
+    intensityBars: 3,
+    completion: '100%',
+    exercisePreview: [
+      for (final exercise in workout.exercises.take(3))
+        CompletedExerciseEntity(
+          name: exercise.name,
+          detail: exercise.setsReps.replaceFirst(' x ', ' · '),
+        ),
+    ],
+    totalExercises: workout.exercises.length,
+  );
+});

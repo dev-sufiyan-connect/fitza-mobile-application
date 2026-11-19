@@ -7,6 +7,8 @@ abstract final class RoutePaths {
   static const String home = '/home';
   static const String fitness = '/fitness';
   static const String fitnessWorkout = '/fitness/workout';
+  static const String exerciseDetails = '/fitness/exercise';
+  static const String workoutCompleted = '/fitness/completed';
   static const String nutrition = '/nutrition';
   static const String progress = '/progress';
   static const String profile = '/profile';

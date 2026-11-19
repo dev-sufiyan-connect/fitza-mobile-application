@@ -9,6 +9,8 @@ abstract final class RouteNames {
   static const String home = 'home';
   static const String fitness = 'fitness';
   static const String fitnessWorkout = 'fitnessWorkout';
+  static const String exerciseDetails = 'exerciseDetails';
+  static const String workoutCompleted = 'workoutCompleted';
   static const String nutrition = 'nutrition';
   static const String progress = 'progress';
   static const String profile = 'profile';
