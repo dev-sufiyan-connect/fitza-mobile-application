@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fitza_mobile_application/core/di/core_providers.dart';
+import 'package:fitza_mobile_application/core/error/failures.dart';
 import 'package:fitza_mobile_application/core/router/route_names.dart';
 import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/theme/app_theme.dart';
@@ -36,9 +38,46 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   }
 
   Future<void> _submit() async {
-    // TODO(temp): auth is not connected yet (no Supabase credentials/DB).
-    // Skip validation + auth call and go straight to the dashboard.
-    context.goNamed(RouteNames.home);
+    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final success = await ref.read(authControllerProvider.notifier).signUp(
+          fullName: _fullNameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+    if (!mounted) return;
+
+    if (success) {
+      // Email confirmation is enabled on the project, so sign-up usually
+      // returns a user without a session until the link is clicked.
+      final hasSession =
+          ref.read(supabaseClientProvider).auth.currentSession != null;
+      if (hasSession) {
+        context.goNamed(RouteNames.home);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Account created. Check your email to confirm, then log in.',
+            ),
+            duration: Duration(seconds: 4),
+          ),
+        );
+        context.goNamed(RouteNames.login);
+      }
+      return;
+    }
+
+    final error = ref.read(authControllerProvider).error;
+    final message = error is Failure
+        ? error.message
+        : 'Sign up failed. Please try again.';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override

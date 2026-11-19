@@ -75,10 +75,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         return RoutePaths.home;
       }
 
-      // TODO(temp): guest protection on protected tabs is disabled for the
-      // UI preview. Splash must still move on — otherwise a signed-out user
-      // would sit on the spinner forever.
+      // Splash must still move on — otherwise a signed-out user would sit
+      // on the spinner forever.
       if (isOnSplash) {
+        return RoutePaths.login;
+      }
+
+      // Signed-out users are sent to login from any protected screen.
+      if (!isLoggedIn && !isOnAuth) {
         return RoutePaths.login;
       }
 
