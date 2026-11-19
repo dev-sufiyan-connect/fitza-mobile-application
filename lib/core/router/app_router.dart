@@ -11,6 +11,7 @@ import 'package:fitza_mobile_application/features/auth/presentation/screens/logi
 import 'package:fitza_mobile_application/features/auth/presentation/screens/signup_screen.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/screens/splash_screen.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/screens/fitness_screen.dart';
+import 'package:fitza_mobile_application/features/fitness/presentation/screens/workout_details_screen.dart';
 import 'package:fitza_mobile_application/features/home/presentation/screens/home_screen.dart';
 import 'package:fitza_mobile_application/features/nutrition/presentation/screens/nutrition_screen.dart';
 import 'package:fitza_mobile_application/features/profile/presentation/screens/profile_screen.dart';
@@ -116,6 +117,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: RoutePaths.fitness,
                 name: RouteNames.fitness,
                 builder: (context, state) => const FitnessScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'workout/:day',
+                    name: RouteNames.fitnessWorkout,
+                    builder: (context, state) => WorkoutDetailsScreen(
+                      day: int.tryParse(state.pathParameters['day'] ?? '') ?? 1,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
