@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:fitza_mobile_application/core/error/exceptions.dart';
+import 'package:fitza_mobile_application/features/fitness/data/models/exercise_workout_history_model.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/fitness_dashboard_model.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/weekly_workout_model.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/workout_exercise_detail_model.dart';
@@ -81,6 +82,36 @@ class FitnessRemoteDataSource {
         ),
         _ => throw const ServerException(
           'Unexpected workout exercise detail response.',
+        ),
+      };
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    }
+  }
+
+  Future<ExerciseWorkoutHistoryModel> getExerciseWorkoutHistory({
+    required String exerciseId,
+    required int limit,
+    required int offset,
+  }) async {
+    try {
+      final response = await _client.rpc(
+        'get_exercise_workout_history',
+        params: {
+          'p_exercise_id': exerciseId,
+          'p_limit': limit,
+          'p_offset': offset,
+        },
+      );
+
+      return switch (response) {
+        final Map<String, dynamic> value =>
+          ExerciseWorkoutHistoryModel.fromMap(value),
+        final Map value => ExerciseWorkoutHistoryModel.fromMap(
+          Map<String, dynamic>.from(value),
+        ),
+        _ => throw const ServerException(
+          'Unexpected exercise workout history response.',
         ),
       };
     } on PostgrestException catch (e) {

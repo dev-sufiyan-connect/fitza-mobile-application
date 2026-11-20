@@ -13,6 +13,7 @@ import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
 import 'package:fitza_mobile_application/core/widgets/shimmer.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/providers/fitness_providers.dart';
+import 'package:fitza_mobile_application/features/fitness/presentation/widgets/exercise_workout_history_section.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/widgets/fitness_assets.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_assets.dart';
 
@@ -79,13 +80,22 @@ class ExerciseDetailsScreen extends ConsumerWidget {
                       _InstructionsCard(exercise: data.exercise),
                     ],
                     const SizedBox(height: 22),
-                    const Text(
-                      'Track Your Sets',
-                      style: TextStyle(
-                        fontSize: 18.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                      ),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Track Your Sets',
+                            style: TextStyle(
+                              fontSize: 18.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ),
+                        ExerciseWorkoutHistoryButton(
+                          exerciseId: data.exercise.exerciseId,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     _SetsTable(rows: data.sets),

@@ -4,10 +4,12 @@ import 'package:fitza_mobile_application/core/di/core_providers.dart';
 import 'package:fitza_mobile_application/core/utils/date_utils.dart';
 import 'package:fitza_mobile_application/features/fitness/data/datasources/fitness_remote_data_source.dart';
 import 'package:fitza_mobile_application/features/fitness/data/repositories/fitness_repository_impl.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/exercise_workout_history_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_exercise_workout_history_usecase.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_fitness_dashboard_usecase.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_weekly_workout_status_usecase.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_workout_exercise_detail_usecase.dart';
@@ -37,6 +39,11 @@ final getWeeklyWorkoutStatusUseCaseProvider =
 final getWorkoutExerciseDetailUseCaseProvider =
     Provider<GetWorkoutExerciseDetailUseCase>(
   (ref) => GetWorkoutExerciseDetailUseCase(ref.watch(fitnessRepositoryProvider)),
+);
+
+final getExerciseWorkoutHistoryUseCaseProvider =
+    Provider<GetExerciseWorkoutHistoryUseCase>(
+  (ref) => GetExerciseWorkoutHistoryUseCase(ref.watch(fitnessRepositoryProvider)),
 );
 
 // ---------------------------------------------------------------------------
@@ -114,6 +121,42 @@ final workoutExerciseDetailProvider = FutureProvider.family<
     onFailure: (failure) => throw failure,
   );
 });
+
+/// Lazily loaded history for a single exercise.
+///
+/// Starts idle (`data == null`); [load] performs the
+/// `get_exercise_workout_history` RPC when the user asks for it.
+class ExerciseWorkoutHistoryController
+    extends AsyncNotifier<ExerciseWorkoutHistoryEntity?> {
+  ExerciseWorkoutHistoryController(this.exerciseId);
+
+  final String exerciseId;
+
+  @override
+  Future<ExerciseWorkoutHistoryEntity?> build() async => null;
+
+  Future<void> load({int limit = 20, int offset = 0}) async {
+    state = const AsyncLoading();
+
+    final result = await ref.read(getExerciseWorkoutHistoryUseCaseProvider)(
+      exerciseId: exerciseId,
+      limit: limit,
+      offset: offset,
+    );
+
+    if (!ref.mounted) return;
+
+    state = result.when(
+      onSuccess: AsyncData.new,
+      onFailure: (failure) => AsyncError(failure, StackTrace.current),
+    );
+  }
+}
+
+final exerciseWorkoutHistoryProvider = AsyncNotifierProvider.family<
+    ExerciseWorkoutHistoryController,
+    ExerciseWorkoutHistoryEntity?,
+    String>(ExerciseWorkoutHistoryController.new);
 
 // ---------------------------------------------------------------------------
 // Workout completion (still mock data)
