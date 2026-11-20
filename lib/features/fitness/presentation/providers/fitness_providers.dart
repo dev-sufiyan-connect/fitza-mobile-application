@@ -1,58 +1,101 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fitza_mobile_application/core/di/core_providers.dart';
+import 'package:fitza_mobile_application/core/utils/date_utils.dart';
+import 'package:fitza_mobile_application/features/fitness/data/datasources/fitness_remote_data_source.dart';
+import 'package:fitza_mobile_application/features/fitness/data/repositories/fitness_repository_impl.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_fitness_dashboard_usecase.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_weekly_workout_status_usecase.dart';
 
-/// TODO: replace with use case + repository once the fitness feature has a
-/// real data layer. Kept as a provider so the UI contract stays stable.
-final fitnessProvider = FutureProvider<FitnessEntity>((ref) async {
-  await Future<void>.delayed(const Duration(milliseconds: 300));
+// ---------------------------------------------------------------------------
+// DI composition
+// ---------------------------------------------------------------------------
 
-  return const FitnessEntity(
-    week: [
-      FitnessWeekDayEntity(
-          day: 'Mon', label: 'D1', isSelected: true, isCompleted: true),
-      FitnessWeekDayEntity(
-          day: 'Tue', label: 'D2', isSelected: false, isCompleted: false),
-      FitnessWeekDayEntity(
-          day: 'Wed', label: 'D3', isSelected: false, isCompleted: false),
-      FitnessWeekDayEntity(
-          day: 'Thu', label: 'D4', isSelected: false, isCompleted: false),
-      FitnessWeekDayEntity(
-          day: 'Fri', label: 'D5', isSelected: false, isCompleted: false),
-      FitnessWeekDayEntity(
-          day: 'Sat', label: 'Rest', isSelected: false, isCompleted: false),
-      FitnessWeekDayEntity(
-          day: 'Sun', label: 'Rest', isSelected: false, isCompleted: false),
-    ],
-    workoutPlan: [
-      WorkoutDayEntity(
-        title: 'Day 1 – Chest, Shoulders & Triceps',
-        exercises: '7 Exercises',
-        isCompleted: true,
-      ),
-      WorkoutDayEntity(
-        title: 'Day 2 – Back, Biceps & Forearms',
-        exercises: '6 Exercises',
-        isCompleted: false,
-      ),
-      WorkoutDayEntity(
-        title: 'Day 3 – Legs',
-        exercises: '6 Exercises',
-        isCompleted: false,
-      ),
-      WorkoutDayEntity(
-        title: 'Day 4 – Mixed Upper & Lower Body',
-        exercises: '8 Exercises',
-        isCompleted: false,
-      ),
-      WorkoutDayEntity(
-        title: 'Day 5 – Back, Arms & Legs',
-        exercises: '7 Exercises',
-        isCompleted: false,
-      ),
-    ],
+final fitnessRemoteDataSourceProvider = Provider<FitnessRemoteDataSource>(
+  (ref) => FitnessRemoteDataSource(ref.watch(supabaseClientProvider)),
+);
+
+final fitnessRepositoryProvider = Provider<FitnessRepositoryImpl>(
+  (ref) => FitnessRepositoryImpl(ref.watch(fitnessRemoteDataSourceProvider)),
+);
+
+final getFitnessDashboardUseCaseProvider =
+    Provider<GetFitnessDashboardUseCase>(
+  (ref) => GetFitnessDashboardUseCase(ref.watch(fitnessRepositoryProvider)),
+);
+
+final getWeeklyWorkoutStatusUseCaseProvider =
+    Provider<GetWeeklyWorkoutStatusUseCase>(
+  (ref) => GetWeeklyWorkoutStatusUseCase(ref.watch(fitnessRepositoryProvider)),
+);
+
+// ---------------------------------------------------------------------------
+// Selected date (drives the API call)
+// ---------------------------------------------------------------------------
+
+/// Currently selected calendar day. Tapping a "This Week" chip updates this,
+/// which re-runs `get_fitness_dashboard` with the new `p_selected_date`.
+class SelectedFitnessDate extends Notifier<DateTime> {
+  @override
+  DateTime build() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  void select(DateTime date) {
+    state = DateTime(date.year, date.month, date.day);
+  }
+}
+
+final selectedFitnessDateProvider =
+    NotifierProvider<SelectedFitnessDate, DateTime>(SelectedFitnessDate.new);
+
+/// Date captured when the fitness tab is first opened. The weekly RPC is a
+/// one-time load for this week — it must not depend on the selected calendar
+/// day, otherwise every chip tap triggers another `get_weekly_workout_status`.
+final fitnessInitialDateProvider = Provider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+});
+
+/// Selected day's workout (hero card + exercise list).
+final fitnessDashboardProvider =
+    FutureProvider<FitnessDashboardEntity>((ref) async {
+  final selectedDate = ref.watch(selectedFitnessDateProvider);
+  final result = await ref.watch(getFitnessDashboardUseCaseProvider)(
+    selectedDate: toIsoDate(selectedDate),
+  );
+
+  return result.when(
+    onSuccess: (dashboard) => dashboard,
+    onFailure: (failure) => throw failure,
   );
 });
+
+/// Week calendar, plan info and per-day statuses.
+///
+/// Loaded once with the date the tab was opened on; selecting other calendar
+/// days never re-runs `get_weekly_workout_status`.
+final weeklyWorkoutStatusProvider =
+    FutureProvider<WeeklyWorkoutStatusEntity>((ref) async {
+  final initialDate = ref.watch(fitnessInitialDateProvider);
+  final result = await ref.watch(getWeeklyWorkoutStatusUseCaseProvider)(
+    selectedDate: toIsoDate(initialDate),
+  );
+
+  return result.when(
+    onSuccess: (weekly) => weekly,
+    onFailure: (failure) => throw failure,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Workout details / completion (still mock data)
+// TODO: replace with per-workout RPCs once those endpoints exist.
+// ---------------------------------------------------------------------------
 
 const _workoutTitles = [
   'Chest, Shoulders & Triceps',

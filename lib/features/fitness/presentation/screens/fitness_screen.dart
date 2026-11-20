@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import 'package:fitza_mobile_application/core/router/route_names.dart';
+import 'package:fitza_mobile_application/core/error/failures.dart';
 import 'package:fitza_mobile_application/core/theme/app_colors.dart';
+import 'package:fitza_mobile_application/core/utils/date_utils.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
-import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/providers/fitness_providers.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/widgets/fitness_assets.dart';
+import 'package:fitza_mobile_application/features/fitness/presentation/widgets/fitness_dashboard_skeleton.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_assets.dart';
 
 /// "Fitness" tab — weekly plan and workout list.
@@ -24,63 +26,113 @@ class _FitnessScreenState extends ConsumerState<FitnessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fitness = ref.watch(fitnessProvider);
+    final day = ref.watch(fitnessDashboardProvider);
+    final weekly = ref.watch(weeklyWorkoutStatusProvider);
+    final selectedIsoDate = toIsoDate(ref.watch(selectedFitnessDateProvider));
+
+    final dayData = day.value;
+    final weeklyData = weekly.value;
+
+    Widget body;
+    if (day.hasError) {
+      body = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            _failureMessage(day.error),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.mutedText,
+            ),
+          ),
+        ),
+      );
+    } else if (dayData == null) {
+      body = const FitnessDashboardSkeleton();
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        children: [
+          _Header(planName: weeklyData?.plan?.name ?? ''),
+          const SizedBox(height: 18),
+          _FilterChips(
+            filters: _filters,
+            selectedIndex: _selectedFilter,
+            onSelected: (i) => setState(() => _selectedFilter = i),
+          ),
+          const SizedBox(height: 18),
+          _HeroCard(day: dayData.day),
+          const SizedBox(height: 26),
+          const _SectionHeader(title: 'This Week', action: 'View Plan'),
+          const SizedBox(height: 12),
+          _WeekSection(
+            weekly: weekly,
+            selectedDate: selectedIsoDate,
+            onSelect: (isoDate) {
+              final date = DateTime.tryParse(isoDate);
+              if (date == null) return;
+              ref.read(selectedFitnessDateProvider.notifier).select(date);
+            },
+          ),
+          const SizedBox(height: 24),
+          const _SectionTitle('Workout Plan'),
+          const SizedBox(height: 12),
+          _SelectedDayCard(day: dayData.day),
+          const SizedBox(height: 10),
+          if (dayData.day.exercises.isEmpty)
+            _EmptyDayCard(status: dayData.day.status)
+          else
+            for (final (i, exercise) in dayData.day.exercises.indexed) ...[
+              _ExerciseCard(exercise: exercise, index: i),
+              const SizedBox(height: 8),
+            ],
+        ],
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: fitness.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          ),
-          error: (e, _) => Center(child: Text('$e')),
-          data: (data) => ListView(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-            children: [
-              const _Header(),
-              const SizedBox(height: 18),
-              _FilterChips(
-                filters: _filters,
-                selectedIndex: _selectedFilter,
-                onSelected: (i) => setState(() => _selectedFilter = i),
-              ),
-              const SizedBox(height: 18),
-              const _HeroCard(),
-              const SizedBox(height: 26),
-              const _SectionHeader(title: 'This Week', action: 'View Plan'),
-              const SizedBox(height: 12),
-              _WeekRow(week: data.week),
-              const SizedBox(height: 24),
-              const _SectionTitle('Workout Plan'),
-              const SizedBox(height: 12),
-              for (final (i, day) in data.workoutPlan.indexed)
-                _WorkoutRow(
-                  day: day,
-                  onTap: () => context.pushNamed(
-                    RouteNames.fitnessWorkout,
-                    pathParameters: {'day': '${i + 1}'},
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+      body: SafeArea(child: body),
     );
   }
 }
 
+String _failureMessage(Object? error) =>
+    error is Failure ? error.message : '$error';
+
+String _weekdayShort(String isoDate) {
+  final date = DateTime.tryParse(isoDate);
+  if (date == null) return '';
+  const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return names[date.weekday - 1];
+}
+
+String _weekdayLabel(WeeklyWorkoutDayEntity day) {
+  if (day.dayName.length >= 3) return day.dayName.substring(0, 3);
+  return _weekdayShort(day.date);
+}
+
+String _statusLabel(String status) {
+  if (status.isEmpty) return 'Scheduled';
+  return status[0].toUpperCase() + status.substring(1);
+}
+
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({required this.planName});
+
+  final String planName;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Fitness',
                 style: TextStyle(
                   fontSize: 30,
@@ -89,10 +141,14 @@ class _Header extends StatelessWidget {
                   height: 1.1,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Your workout plan and activity',
-                style: TextStyle(
+                planName.isNotEmpty
+                    ? planName
+                    : 'Your workout plan and activity',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w500,
                   color: AppColors.mutedText,
@@ -177,16 +233,33 @@ class _FilterChips extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard();
+  const _HeroCard({required this.day});
+
+  final FitnessDayEntity day;
 
   @override
   Widget build(BuildContext context) {
+    final isRest = day.isRest;
+    final dayNumber = day.dayNumber;
+    final tag = isRest || dayNumber == null
+        ? 'REST DAY'
+        : 'DAY ${dayNumber.toString().padLeft(2, '0')}';
+    final title = isRest
+        ? 'Rest & Recover'
+        : day.title.isNotEmpty
+        ? day.title
+        : 'Workout';
+    final subtitle = isRest
+        ? 'Recovery day · recharge for tomorrow'
+        : '${day.exerciseCount} '
+              '${day.exerciseCount == 1 ? 'Exercise' : 'Exercises'}';
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(FitnessAsset.hero, fit: BoxFit.cover),
+            child: Image.asset(FitnessAsset.hero, fit: BoxFit.fill),
           ),
           // Dark-green wash so the overlay text stays crisp (Figma ref).
           Positioned.fill(
@@ -211,15 +284,17 @@ class _HeroCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFD9EFC9),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    'Day 1',
-                    style: TextStyle(
+                  child: Text(
+                    tag,
+                    style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
                       color: AppColors.secondary,
@@ -227,9 +302,9 @@ class _HeroCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Chest, Shoulders\n& Triceps',
-                  style: TextStyle(
+                Text(
+                  title,
+                  style: const TextStyle(
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -238,15 +313,17 @@ class _HeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '7 Exercises  •  ~ 45 min',
+                  subtitle,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const _StartWorkoutButton(),
+                if (!isRest) ...[
+                  const SizedBox(height: 12),
+                  const _StartWorkoutButton(),
+                ],
               ],
             ),
           ),
@@ -360,18 +437,101 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _WeekRow extends StatelessWidget {
-  const _WeekRow({required this.week});
+class _WeekSection extends StatelessWidget {
+  const _WeekSection({
+    required this.weekly,
+    required this.selectedDate,
+    required this.onSelect,
+  });
 
-  final List<FitnessWeekDayEntity> week;
+  final AsyncValue<WeeklyWorkoutStatusEntity> weekly;
+  final String selectedDate;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return weekly.when(
+      skipLoadingOnReload: true,
+      loading: () => const FitnessWeekSkeleton(),
+      error: (error, _) => _InlineMessage(
+        icon: Icons.calendar_month_rounded,
+        message: _failureMessage(error),
+      ),
+      data: (data) => data.weeklyStatus.isEmpty
+          ? const _InlineMessage(
+              icon: Icons.event_busy_rounded,
+              message: 'No schedule for this week yet.',
+            )
+          : _WeekRow(
+              days: data.weeklyStatus,
+              selectedDate: selectedDate,
+              onSelect: onSelect,
+            ),
+    );
+  }
+}
+
+class _InlineMessage extends StatelessWidget {
+  const _InlineMessage({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEFF1EE)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.mutedText,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeekRow extends StatelessWidget {
+  const _WeekRow({
+    required this.days,
+    required this.selectedDate,
+    required this.onSelect,
+  });
+
+  final List<WeeklyWorkoutDayEntity> days;
+  final String selectedDate;
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        for (final (i, day) in week.indexed) ...[
+        for (final (i, day) in days.indexed) ...[
           if (i > 0) const SizedBox(width: 6),
-          Expanded(child: _WeekDayChip(day: day)),
+          Expanded(
+            child: _WeekDayChip(
+              day: day,
+              isSelected: day.date == selectedDate,
+              onTap: () => onSelect(day.date),
+            ),
+          ),
         ],
       ],
     );
@@ -379,160 +539,441 @@ class _WeekRow extends StatelessWidget {
 }
 
 class _WeekDayChip extends StatelessWidget {
-  const _WeekDayChip({required this.day});
+  const _WeekDayChip({
+    required this.day,
+    required this.isSelected,
+    required this.onTap,
+  });
 
-  final FitnessWeekDayEntity day;
+  final WeeklyWorkoutDayEntity day;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      decoration: BoxDecoration(
-        color: day.isSelected ? const Color(0xFFE5F4DC) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: day.isSelected
-              ? const Color(0xFFCDE8BE)
-              : const Color(0xFFEFF1EE),
+    final isUpcoming = day.status == 'upcoming';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFE5F4DC) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFFCDE8BE)
+                : const Color(0xFFEFF1EE),
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            day.day,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: day.isSelected
-                  ? const Color(0xFF3F6B3F)
-                  : AppColors.mutedText,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            day.label,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (day.isCompleted)
-            Container(
-              width: 19,
-              height: 19,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _weekdayLabel(day),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? const Color(0xFF3F6B3F)
+                    : AppColors.mutedText,
               ),
-              child: const Icon(Icons.check, size: 12, color: Colors.white),
-            )
-          else
-            Container(
-              width: 17,
-              height: 17,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: const Color(0xFFC9D2CA),
-                  width: 1.4,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              day.workoutDayNumber == null
+                  ? 'Rest'
+                  : 'D${day.workoutDayNumber}',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: isUpcoming && !isSelected
+                    ? AppColors.mutedText
+                    : AppColors.textDark,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (day.isCompleted)
+              Container(
+                width: 19,
+                height: 19,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, size: 12, color: Colors.white),
+              )
+            else if (day.isRest)
+              Container(
+                width: 19,
+                height: 19,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEDF1EA),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.bedtime_rounded,
+                  size: 11,
+                  color: AppColors.mutedText,
+                ),
+              )
+            else
+              Container(
+                width: 17,
+                height: 17,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFC9D2CA),
+                    width: 1.4,
+                  ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedDayCard extends StatelessWidget {
+  const _SelectedDayCard({required this.day});
+
+  final FitnessDayEntity day;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRest = day.isRest;
+    final count = day.exerciseCount;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: isRest
+              ? const [Color(0xFFF4F6F2), Color(0xFFEDF1EA)]
+              : const [Color(0xFFEFF8E8), Color(0xFFDFF2D0)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(13),
             ),
+            child: isRest
+                ? const Icon(
+                    Icons.spa_rounded,
+                    size: 22,
+                    color: AppColors.primary,
+                  )
+                : const AssetIcon(
+                    HomeAsset.dumbbell,
+                    size: 22,
+                    color: AppColors.primary,
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        isRest
+                            ? 'Rest Day'
+                            : day.title.isNotEmpty
+                            ? day.title
+                            : 'Workout',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textDark,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _StatusBadge(status: day.status),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isRest
+                      ? 'Recovery day · no exercises'
+                      : '$count ${count == 1 ? 'exercise' : 'exercises'} '
+                            'in this session',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.mutedText,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _WorkoutRow extends StatelessWidget {
-  const _WorkoutRow({required this.day, this.onTap});
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
 
-  final WorkoutDayEntity day;
-  final VoidCallback? onTap;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFEFF1EC)),
-            ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.asset(
-                    FitnessAsset.hero,
-                    width: 52,
-                    height: 52,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        day.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textDark,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        day.exercises,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.mutedText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (day.isCompleted)
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child:
-                        const Icon(Icons.check, size: 16, color: Colors.white),
-                  )
-                else
-                  const AssetIcon(
-                    HomeAsset.chevronRight,
-                    size: 19,
-                    color: AppColors.textDark,
-                  ),
-                const SizedBox(width: 4),
-              ],
-            ),
-          ),
+    final isCompleted = status == 'completed';
+    final isRest = status == 'rest';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: isCompleted ? AppColors.primary : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        _statusLabel(status),
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          color: isCompleted
+              ? Colors.white
+              : isRest
+              ? AppColors.mutedText
+              : AppColors.secondary,
         ),
       ),
     );
   }
+}
+
+class _ExerciseCard extends StatelessWidget {
+  const _ExerciseCard({required this.exercise, required this.index});
+
+  final FitnessExerciseEntity exercise;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _exerciseSummary(exercise);
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEFF1EC)),
+      ),
+      child: Row(
+        children: [
+          _ExerciseThumbnail(exercise: exercise, index: index),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  exercise.name.isNotEmpty ? exercise.name : 'Exercise',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textDark,
+                    height: 1.2,
+                  ),
+                ),
+                if (summary.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.mutedText,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEAF5E3),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: AppColors.secondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseThumbnail extends StatelessWidget {
+  const _ExerciseThumbnail({required this.exercise, required this.index});
+
+  final FitnessExerciseEntity exercise;
+  final int index;
+
+  static const _alignments = [
+    Alignment.topLeft,
+    Alignment.center,
+    Alignment.bottomRight,
+    Alignment.topRight,
+    Alignment.bottomLeft,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Image.asset(
+      FitnessAsset.hero,
+      width: 52,
+      height: 52,
+      fit: BoxFit.cover,
+      alignment: _alignments[index % _alignments.length],
+    );
+    final thumbnailPath = exercise.thumbnailPath;
+    final isRemote = thumbnailPath.startsWith('http');
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: isRemote
+          ? Image.network(
+              thumbnailPath,
+              width: 52,
+              height: 52,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback,
+            )
+          : fallback,
+    );
+  }
+}
+
+class _EmptyDayCard extends StatelessWidget {
+  const _EmptyDayCard({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRest = status == 'rest';
+    final isCompleted = status == 'completed';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEFF1EC)),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            isRest
+                ? Icons.spa_rounded
+                : isCompleted
+                ? Icons.verified_rounded
+                : Icons.event_note_rounded,
+            size: 26,
+            color: AppColors.primary,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isRest
+                ? 'Rest day — recover & recharge'
+                : isCompleted
+                ? 'Workout completed'
+                : 'No exercises for this day',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            isRest
+                ? 'No workout scheduled. Come back tomorrow for your next session.'
+                : isCompleted
+                ? 'Great work! Your exercises are logged for this day.'
+                : 'Exercises will appear here once your plan is updated.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.mutedText,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _exerciseSummary(FitnessExerciseEntity exercise) {
+  final parts = <String>[];
+  final sets = exercise.sets;
+
+  if (sets.isNotEmpty) {
+    parts.add('${sets.length} ${sets.length == 1 ? 'set' : 'sets'}');
+    final first = sets.first;
+
+    if (first.targetDurationSeconds != null) {
+      parts.add('${first.targetDurationSeconds}s');
+    } else if (first.targetRepsMin != null) {
+      final min = first.targetRepsMin!;
+      final max = first.targetRepsMax;
+      parts.add(max != null && max != min ? '$min–$max reps' : '$min reps');
+    }
+
+    if (first.targetWeightKg != null) {
+      final weight = first.targetWeightKg!;
+      parts.add(
+        '${weight == weight.roundToDouble() ? weight.toInt() : weight} kg',
+      );
+    }
+
+    if (first.restSeconds != null) {
+      parts.add('${first.restSeconds}s rest');
+    }
+  }
+
+  if (parts.isEmpty && exercise.description.isNotEmpty) {
+    return exercise.description;
+  }
+  return parts.join(' · ');
 }

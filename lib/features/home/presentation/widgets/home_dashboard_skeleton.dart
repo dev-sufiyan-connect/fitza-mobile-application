@@ -37,34 +37,6 @@ class HomeDashboardSkeleton extends StatelessWidget {
   }
 }
 
-class _SkeletonBox extends StatelessWidget {
-  const _SkeletonBox({
-    required this.width,
-    required this.height,
-    this.radius = 8,
-    this.shape = BoxShape.rectangle,
-  });
-
-  final double width;
-  final double height;
-  final double radius;
-  final BoxShape shape;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: AppColors.shimmerBase,
-        shape: shape,
-        borderRadius:
-            shape == BoxShape.circle ? null : BorderRadius.circular(radius),
-      ),
-    );
-  }
-}
-
 class _HeaderSkeleton extends StatelessWidget {
   const _HeaderSkeleton();
 
@@ -73,13 +45,13 @@ class _HeaderSkeleton extends StatelessWidget {
     return const Shimmer(
       child: Row(
         children: [
-          _SkeletonBox(width: 34, height: 34, radius: 10),
+          ShimmerBox(width: 34, height: 34, radius: 10),
           SizedBox(width: AppSpacing.sm),
-          _SkeletonBox(width: 62, height: 22),
+          ShimmerBox(width: 62, height: 22),
           Spacer(),
-          _SkeletonBox(width: 44, height: 44, radius: 16),
+          ShimmerBox(width: 44, height: 44, radius: 16),
           SizedBox(width: AppSpacing.md),
-          _SkeletonBox(width: 42, height: 42, shape: BoxShape.circle),
+          ShimmerBox(width: 42, height: 42, shape: BoxShape.circle),
         ],
       ),
     );
@@ -99,16 +71,16 @@ class _GreetingSkeleton extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SkeletonBox(width: 150, height: 16),
+                ShimmerBox(width: 150, height: 16),
                 SizedBox(height: 10),
-                _SkeletonBox(width: 200, height: 30, radius: 10),
+                ShimmerBox(width: 200, height: 30, radius: 10),
                 SizedBox(height: 10),
-                _SkeletonBox(width: 230, height: 14),
+                ShimmerBox(width: 230, height: 14),
               ],
             ),
           ),
           SizedBox(width: AppSpacing.sm),
-          _SkeletonBox(width: 96, height: 40, radius: 14),
+          ShimmerBox(width: 96, height: 40, radius: 14),
         ],
       ),
     );
@@ -137,7 +109,7 @@ class _ProgressCardSkeleton extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(width: 4),
-            _SkeletonBox(width: 124, height: 124, shape: BoxShape.circle),
+            ShimmerBox(width: 124, height: 124, shape: BoxShape.circle),
             SizedBox(width: AppSpacing.lg),
             Expanded(
               child: Column(
@@ -166,11 +138,11 @@ class _ChecklistRowSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Row(
       children: [
-        _SkeletonBox(width: 32, height: 32, radius: 10),
+        ShimmerBox(width: 32, height: 32, radius: 10),
         SizedBox(width: AppSpacing.sm),
-        Expanded(child: _SkeletonBox(width: double.infinity, height: 14)),
+        Expanded(child: ShimmerBox(width: double.infinity, height: 14)),
         SizedBox(width: AppSpacing.sm),
-        _SkeletonBox(width: 34, height: 14),
+        ShimmerBox(width: 34, height: 14),
       ],
     );
   }
@@ -191,9 +163,9 @@ class _StatsSkeleton extends StatelessWidget {
         child: Row(
           children: [
             Expanded(child: _StatSkeleton()),
-            _SkeletonBox(width: 1, height: 34),
+            ShimmerBox(width: 1, height: 34),
             Expanded(child: _StatSkeleton()),
-            _SkeletonBox(width: 1, height: 34),
+            ShimmerBox(width: 1, height: 34),
             Expanded(child: _StatSkeleton()),
           ],
         ),
@@ -210,15 +182,15 @@ class _StatSkeleton extends StatelessWidget {
     return const Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _SkeletonBox(width: 24, height: 24, radius: 8),
+        ShimmerBox(width: 24, height: 24, radius: 8),
         SizedBox(width: 8),
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SkeletonBox(width: 52, height: 12),
+            ShimmerBox(width: 52, height: 12),
             SizedBox(height: 5),
-            _SkeletonBox(width: 42, height: 10),
+            ShimmerBox(width: 42, height: 10),
           ],
         ),
       ],
@@ -234,9 +206,9 @@ class _PlanHeaderSkeleton extends StatelessWidget {
     return const Shimmer(
       child: Row(
         children: [
-          _SkeletonBox(width: 130, height: 24),
+          ShimmerBox(width: 130, height: 24),
           Spacer(),
-          _SkeletonBox(width: 64, height: 16),
+          ShimmerBox(width: 64, height: 16),
         ],
       ),
     );
@@ -258,22 +230,22 @@ class _PlanCardSkeleton extends StatelessWidget {
       child: const Shimmer(
         child: Row(
           children: [
-            _SkeletonBox(width: 48, height: 48, radius: 15),
+            ShimmerBox(width: 48, height: 48, radius: 15),
             SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SkeletonBox(width: 84, height: 16),
+                  ShimmerBox(width: 84, height: 16),
                   SizedBox(height: 6),
-                  _SkeletonBox(width: 150, height: 12),
+                  ShimmerBox(width: 150, height: 12),
                 ],
               ),
             ),
             SizedBox(width: 10),
-            _SkeletonBox(width: 54, height: 29, radius: 12),
+            ShimmerBox(width: 54, height: 29, radius: 12),
             SizedBox(width: 10),
-            _SkeletonBox(width: 20, height: 20),
+            ShimmerBox(width: 20, height: 20),
           ],
         ),
       ),
@@ -287,7 +259,7 @@ class _ButtonSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Shimmer(
-      child: _SkeletonBox(
+      child: ShimmerBox(
         width: double.infinity,
         height: 56,
         radius: 28,

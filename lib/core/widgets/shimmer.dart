@@ -73,3 +73,33 @@ class _SlidingGradientTransform extends GradientTransform {
     return Matrix4.translationValues(bounds.width * (progress * 2 - 1), 0, 0);
   }
 }
+
+/// Rounded placeholder used inside a [Shimmer].
+class ShimmerBox extends StatelessWidget {
+  const ShimmerBox({
+    super.key,
+    required this.width,
+    required this.height,
+    this.radius = 8,
+    this.shape = BoxShape.rectangle,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+  final BoxShape shape;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.shimmerBase,
+        shape: shape,
+        borderRadius:
+            shape == BoxShape.circle ? null : BorderRadius.circular(radius),
+      ),
+    );
+  }
+}
