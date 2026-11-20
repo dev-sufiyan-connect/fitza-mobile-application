@@ -1,48 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fitza_mobile_application/core/di/core_providers.dart';
+import 'package:fitza_mobile_application/features/home/data/datasources/home_remote_data_source.dart';
+import 'package:fitza_mobile_application/features/home/data/repositories/home_repository_impl.dart';
 import 'package:fitza_mobile_application/features/home/domain/entities/home_dashboard_entity.dart';
+import 'package:fitza_mobile_application/features/home/domain/usecases/get_home_dashboard_usecase.dart';
 
-/// TODO: replace with use case + repository once the workout/nutrition
-/// features have real data layers. Kept as a provider so the UI contract
-/// (`AsyncValue` of `HomeDashboardEntity`) stays stable.
+/// TODO: replace with the signed-in user's workspace once workspace
+/// selection exists.
+const String _defaultWorkspaceId = '91e38620-ae50-4abe-aa28-d5d1a09d814e';
+
+final homeRemoteDataSourceProvider = Provider<HomeRemoteDataSource>(
+  (ref) => HomeRemoteDataSource(ref.watch(supabaseClientProvider)),
+);
+
+final homeRepositoryProvider = Provider<HomeRepositoryImpl>(
+  (ref) => HomeRepositoryImpl(ref.watch(homeRemoteDataSourceProvider)),
+);
+
+final getHomeDashboardUseCaseProvider = Provider<GetHomeDashboardUseCase>(
+  (ref) => GetHomeDashboardUseCase(ref.watch(homeRepositoryProvider)),
+);
+
 final homeDashboardProvider = FutureProvider<HomeDashboardEntity>((ref) async {
-  await Future<void>.delayed(const Duration(milliseconds: 400));
+  final result = await ref.watch(getHomeDashboardUseCaseProvider)(
+    workspaceId: _defaultWorkspaceId,
+  );
 
-  return const HomeDashboardEntity(
-    progressPercent: 72,
-    checklist: [
-      ChecklistItemEntity(label: 'Workout', value: '', isComplete: true),
-      ChecklistItemEntity(label: 'Meals', value: '2 / 4', isComplete: false),
-      ChecklistItemEntity(label: 'Water', value: '1.5 / 3 L', isComplete: false),
-      ChecklistItemEntity(label: 'Tasks', value: '3 / 5', isComplete: false),
-    ],
-    stats: [
-      StatChipEntity(title: '90.0 kg', subtitle: 'Weight', icon: 'scale'),
-      StatChipEntity(title: '7h 20m', subtitle: 'Sleep', icon: 'moon'),
-      StatChipEntity(title: '1,350 kcal', subtitle: 'Calories', icon: 'flame'),
-    ],
-    plan: [
-      PlanItemEntity(
-        title: 'Workout',
-        subtitle: 'Day 1 – Chest, Shoulders & Triceps',
-        icon: 'dumbbell',
-        badge: null,
-        isCompleted: false,
-      ),
-      PlanItemEntity(
-        title: 'Meals',
-        subtitle: '4 meals · 1,974 kcal',
-        icon: 'apple',
-        badge: '2 / 4',
-        isCompleted: false,
-      ),
-      PlanItemEntity(
-        title: 'Daily Tasks',
-        subtitle: '3 of 5 completed',
-        icon: 'check-square',
-        badge: '3 / 5',
-        isCompleted: false,
-      ),
-    ],
+  return result.when(
+    onSuccess: (dashboard) => dashboard,
+    onFailure: (failure) => throw failure,
   );
 });

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fitza_mobile_application/core/error/failures.dart';
 import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/theme/app_theme.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
 import 'package:fitza_mobile_application/features/auth/presentation/providers/auth_providers.dart';
 import 'package:fitza_mobile_application/features/home/presentation/providers/home_providers.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_assets.dart';
+import 'package:fitza_mobile_application/features/home/presentation/widgets/home_dashboard_skeleton.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_hills_decoration.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_widgets.dart';
 
@@ -41,6 +43,15 @@ class HomeScreen extends ConsumerWidget {
     return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]}';
   }
 
+  Future<void> _refresh(WidgetRef ref) async {
+    try {
+      final refreshed = ref.refresh(homeDashboardProvider.future);
+      await refreshed;
+    } catch (_) {
+      // Errors are already rendered through the provider's AsyncValue.
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(homeDashboardProvider);
@@ -60,34 +71,49 @@ class HomeScreen extends ConsumerWidget {
           ),
           SafeArea(
             child: dashboard.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-              error: (e, _) => Center(child: Text('$e')),
-              data: (data) => ListView(
-                padding: const EdgeInsets.all(12),
-                children: [
-                  _Header(avatarPath: HomeAsset.avatar),
-                  const SizedBox(height: AppSpacing.lg),
-                  _Greeting(
-                    greeting: _greeting(),
-                    name: user?.fullName ?? 'there',
-                    dateLabel: _todayLabel(),
+              loading: () => const HomeDashboardSkeleton(),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Text(
+                    e is Failure ? e.message : 'Failed to load your dashboard.',
+                    textAlign: TextAlign.center,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.mutedText,
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  DashboardProgressCard(dashboard: data),
-                  const SizedBox(height: AppSpacing.md),
-                  StatChipRow(stats: data.stats),
-                  const SizedBox(height: AppSpacing.xl),
-                  _SectionHeader(),
-                  const SizedBox(height: AppSpacing.md),
-                  for (final item in data.plan) ...[
-                    PlanCard(item: item),
-                    const SizedBox(height: 10),
+                ),
+              ),
+              data: (data) => RefreshIndicator(
+                color: AppColors.primary,
+                backgroundColor: Colors.white,
+                onRefresh: () => _refresh(ref),
+                child: ListView(
+                  padding: const EdgeInsets.all(12),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    _Header(avatarPath: HomeAsset.avatar),
+                    const SizedBox(height: AppSpacing.lg),
+                    _Greeting(
+                      greeting: _greeting(),
+                      name: user?.fullName ?? 'there',
+                      dateLabel: _todayLabel(),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    DashboardProgressCard(dashboard: data),
+                    const SizedBox(height: AppSpacing.md),
+                    StatChipRow(stats: data.stats),
+                    const SizedBox(height: AppSpacing.xl),
+                    _SectionHeader(),
+                    const SizedBox(height: AppSpacing.md),
+                    for (final item in data.plan) ...[
+                      PlanCard(item: item),
+                      const SizedBox(height: 10),
+                    ],
+                    const SizedBox(height: AppSpacing.sm),
+                    const _StartWorkoutButton(),
                   ],
-                  const SizedBox(height: AppSpacing.sm),
-                  const _StartWorkoutButton(),
-                ],
+                ),
               ),
             ),
           ),

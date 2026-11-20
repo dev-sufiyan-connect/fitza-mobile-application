@@ -21,4 +21,8 @@ abstract final class AppColors {
   // Semantic
   static const Color error = Color(0xFFD6483B);
   static const Color success = primary;
+
+  // Loading skeletons
+  static const Color shimmerBase = Color(0xFFE4EAE4);
+  static const Color shimmerHighlight = Color(0xFFF4F8F2);
 }
