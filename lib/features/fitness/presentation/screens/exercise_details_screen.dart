@@ -1,40 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
+import 'package:fitza_mobile_application/core/error/failures.dart';
 import 'package:fitza_mobile_application/core/router/route_names.dart';
 import 'package:fitza_mobile_application/core/theme/app_colors.dart';
+import 'package:fitza_mobile_application/core/utils/date_utils.dart';
+import 'package:fitza_mobile_application/core/utils/youtube_utils.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
-import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
+import 'package:fitza_mobile_application/core/widgets/shimmer.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/providers/fitness_providers.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/widgets/fitness_assets.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_assets.dart';
 
 /// Full-screen details for a single exercise.
 class ExerciseDetailsScreen extends ConsumerWidget {
-  const ExerciseDetailsScreen({
-    super.key,
-    required this.day,
-    required this.exerciseIndex,
-  });
+  const ExerciseDetailsScreen({super.key, required this.planExerciseId});
 
-  final int day;
-  final int exerciseIndex;
+  final String planExerciseId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectedDate = toIsoDate(ref.watch(selectedFitnessDateProvider));
     final details = ref.watch(
-      exerciseDetailsProvider((day: day, index: exerciseIndex)),
+      workoutExerciseDetailProvider((
+        selectedDate: selectedDate,
+        planExerciseId: planExerciseId,
+      )),
     );
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: details.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
+          loading: () => const _ExerciseDetailsSkeleton(),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                _failureMessage(e),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.mutedText,
+                ),
+              ),
+            ),
           ),
-          error: (e, _) => Center(child: Text('$e')),
           data: (data) => Column(
             children: [
               Expanded(
@@ -44,15 +60,24 @@ class ExerciseDetailsScreen extends ConsumerWidget {
                     _TopBar(details: data),
                     const SizedBox(height: 14),
                     _Segments(
-                      filled: data.position,
-                      total: data.total,
+                      filled: data.exercisePosition,
+                      total: data.totalExercises,
                     ),
                     const SizedBox(height: 14),
-                    const _VideoPreview(),
+                    _VideoPreview(exercise: data.exercise),
                     const SizedBox(height: 14),
-                    _TitleBlock(details: data),
+                    _TitleBlock(exercise: data.exercise),
                     const SizedBox(height: 14),
                     _StatsRow(details: data),
+                    if (data.exercise.description.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _AboutCard(exercise: data.exercise),
+                    ],
+                    if (data.exercise.instructions.isNotEmpty ||
+                        data.exercise.planInstructions != null) ...[
+                      const SizedBox(height: 14),
+                      _InstructionsCard(exercise: data.exercise),
+                    ],
                     const SizedBox(height: 22),
                     const Text(
                       'Track Your Sets',
@@ -63,9 +88,11 @@ class ExerciseDetailsScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _SetsTable(rows: data.setRows),
-                    const SizedBox(height: 14),
-                    const _RestTimeCard(),
+                    _SetsTable(rows: data.sets),
+                    if (_firstRestSeconds(data.sets) != null) ...[
+                      const SizedBox(height: 14),
+                      _RestTimeCard(seconds: _firstRestSeconds(data.sets)!),
+                    ],
                     const SizedBox(height: 14),
                     const _NotesField(),
                   ],
@@ -73,7 +100,7 @@ class ExerciseDetailsScreen extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: _BottomActions(day: day),
+                child: _BottomActions(day: data.workoutDayNumber),
               ),
             ],
           ),
@@ -83,10 +110,162 @@ class ExerciseDetailsScreen extends ConsumerWidget {
   }
 }
 
+String _failureMessage(Object? error) =>
+    error is Failure ? error.message : '$error';
+
+String _dayLabel(WorkoutExerciseDetailEntity details) {
+  final day = 'Day ${details.workoutDayNumber.toString().padLeft(2, '0')}';
+  final title = details.workoutTitle.trim();
+  if (title.isEmpty ||
+      title.toLowerCase() == day.toLowerCase() ||
+      title.toLowerCase() == 'day ${details.workoutDayNumber}') {
+    return day;
+  }
+  return '$day · $title';
+}
+
+String _exerciseSubtitle(WorkoutExerciseInfoEntity exercise) {
+  final difficulty = exercise.difficulty.trim();
+  final formattedDifficulty = difficulty.isEmpty
+      ? ''
+      : '${difficulty[0].toUpperCase()}${difficulty.substring(1)}';
+
+  return [
+    if (exercise.categoryName.isNotEmpty) exercise.categoryName,
+    if (formattedDifficulty.isNotEmpty) formattedDifficulty,
+    if (exercise.isCompound) 'Compound',
+    if (exercise.isUnilateral) 'Unilateral',
+  ].join(' · ');
+}
+
+String _targetReps(WorkoutExerciseSetEntity set) {
+  final min = set.targetRepsMin;
+  final max = set.targetRepsMax;
+  if (min != null && max != null) {
+    return min == max ? '$min' : '$min – $max';
+  }
+  if (min != null) return '$min+';
+  if (set.targetDurationSeconds != null) return '${set.targetDurationSeconds}s';
+  return '—';
+}
+
+String _displayReps(WorkoutExerciseSetEntity set) {
+  if (set.actualReps != null) return '${set.actualReps}';
+  if (set.actualDurationSeconds != null) return '${set.actualDurationSeconds}s';
+  return _targetReps(set);
+}
+
+String _repsSummary(List<WorkoutExerciseSetEntity> sets) {
+  for (final set in sets) {
+    final reps = _targetReps(set);
+    if (reps != '—') return reps;
+  }
+  return '—';
+}
+
+String _weightLabel(WorkoutExerciseSetEntity set) {
+  final weight = set.actualWeightKg ?? set.targetWeightKg;
+  if (weight == null) return '—';
+  return weight == weight.roundToDouble()
+      ? '${weight.toInt()}'
+      : weight.toStringAsFixed(1);
+}
+
+int? _firstRestSeconds(List<WorkoutExerciseSetEntity> sets) {
+  for (final set in sets) {
+    if (set.restSeconds != null) return set.restSeconds;
+  }
+  return null;
+}
+
+String _restLabel(int? seconds) {
+  if (seconds == null) return '—';
+  if (seconds < 60) return '$seconds sec';
+  final minutes = seconds ~/ 60;
+  final remainder = seconds % 60;
+  if (remainder == 0) return '$minutes min';
+  return '$minutes min $remainder sec';
+}
+
+String _clockLabel(int seconds) {
+  final minutes = seconds ~/ 60;
+  final remainder = seconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:'
+      '${remainder.toString().padLeft(2, '0')}';
+}
+
+class _ExerciseDetailsSkeleton extends StatelessWidget {
+  const _ExerciseDetailsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      physics: const NeverScrollableScrollPhysics(),
+      children: const [
+        Shimmer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  ShimmerBox(width: 24, height: 24, shape: BoxShape.circle),
+                  Spacer(),
+                  ShimmerBox(width: 84, height: 24, radius: 12),
+                ],
+              ),
+              SizedBox(height: 16),
+              ShimmerBox(width: double.infinity, height: 6, radius: 3),
+              SizedBox(height: 16),
+              ShimmerBox(width: double.infinity, height: 200, radius: 18),
+              SizedBox(height: 16),
+              ShimmerBox(width: 220, height: 22),
+              SizedBox(height: 8),
+              ShimmerBox(width: 160, height: 13),
+              SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ShimmerBox(
+                      width: double.infinity,
+                      height: 64,
+                      radius: 14,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: ShimmerBox(
+                      width: double.infinity,
+                      height: 64,
+                      radius: 14,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: ShimmerBox(
+                      width: double.infinity,
+                      height: 64,
+                      radius: 14,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 22),
+              ShimmerBox(width: 140, height: 20),
+              SizedBox(height: 12),
+              ShimmerBox(width: double.infinity, height: 130, radius: 14),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.details});
 
-  final ExerciseDetailsEntity details;
+  final WorkoutExerciseDetailEntity details;
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +287,7 @@ class _TopBar extends StatelessWidget {
         Expanded(
           child: Center(
             child: Text(
-              details.dayLabel,
+              _dayLabel(details),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -127,7 +306,7 @@ class _TopBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
-            '${details.position} of ${details.total}',
+            '${details.exercisePosition} of ${details.totalExercises}',
             style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
@@ -148,6 +327,8 @@ class _Segments extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (total <= 0) return const SizedBox.shrink();
+
     return Row(
       children: [
         for (var i = 0; i < total; i++) ...[
@@ -169,81 +350,227 @@ class _Segments extends StatelessWidget {
   }
 }
 
-class _VideoPreview extends StatelessWidget {
-  const _VideoPreview();
+class _VideoPreview extends StatefulWidget {
+  const _VideoPreview({required this.exercise});
+
+  final WorkoutExerciseInfoEntity exercise;
+
+  @override
+  State<_VideoPreview> createState() => _VideoPreviewState();
+}
+
+class _VideoPreviewState extends State<_VideoPreview> {
+  static const _playerParams = YoutubePlayerParams(
+    showControls: true,
+    showFullscreenButton: true,
+    playsInline: true,
+    strictRelatedVideos: true,
+    // YouTube now requires a valid embed origin/referer. Without this,
+    // Android WebView shows "This video is unavailable" (error 152/153).
+    origin: 'https://www.youtube-nocookie.com',
+  );
+
+  YoutubePlayerController? _controller;
+  late final String? _videoId = parseYoutubeVideoId(widget.exercise.videoPath);
+
+  void _playVideo() {
+    final videoId = _videoId;
+    if (videoId == null) return;
+
+    // Do not pass the video id as the controller key: ids containing "-"
+    // produce an invalid JavaScript identifier in youtube_player_iframe 5.x
+    // (e.g. `Youtube0nrW-q7-WRQ.postMessage(...)`), so player events never
+    // reach Dart. Load the video explicitly instead.
+    final controller = YoutubePlayerController(params: _playerParams)
+      ..loadVideoById(videoId: videoId);
+
+    setState(() => _controller = controller);
+  }
+
+  Future<void> _openInYouTube() async {
+    final videoId = _videoId;
+    if (videoId == null) return;
+
+    final uri = Uri.parse('https://www.youtube.com/watch?v=$videoId');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  void dispose() {
+    _controller?.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: SizedBox(
-        height: 200,
-        width: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(FitnessAsset.hero, fit: BoxFit.cover),
-            Center(
-              child: Container(
-                width: 54,
-                height: 54,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  size: 32,
-                  color: AppColors.textDark,
-                ),
-              ),
-            ),
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.play_circle_outline_rounded,
-                      size: 13,
-                      color: Colors.white,
+    final controller = _controller;
+    if (controller != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: YoutubeValueBuilder(
+          controller: controller,
+          builder: (context, value) {
+            if (value.hasError) {
+              return _VideoUnavailable(onOpenInYouTube: _openInYouTube);
+            }
+
+            return YoutubePlayer(
+              controller: controller,
+              aspectRatio: 16 / 9,
+            );
+          },
+        ),
+      );
+    }
+
+    final exercise = widget.exercise;
+    final thumbnail = exercise.thumbnailPath;
+    final fallback = Image.asset(FitnessAsset.hero, fit: BoxFit.cover);
+    final canPlay = _videoId != null;
+
+    return GestureDetector(
+      onTap: canPlay ? _playVideo : null,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox(
+          height: 200,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (thumbnail.startsWith('http'))
+                Image.network(
+                  thumbnail,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => fallback,
+                )
+              else
+                fallback,
+              if (canPlay) ...[
+                Center(
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      shape: BoxShape.circle,
                     ),
-                    SizedBox(width: 5),
-                    Text(
-                      'Video Demo',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      size: 32,
+                      color: AppColors.textDark,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ],
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.play_circle_outline_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Video Demo',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _TitleBlock extends StatelessWidget {
-  const _TitleBlock({required this.details});
+class _VideoUnavailable extends StatelessWidget {
+  const _VideoUnavailable({required this.onOpenInYouTube});
 
-  final ExerciseDetailsEntity details;
+  final VoidCallback onOpenInYouTube;
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      height: 200,
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      color: const Color(0xFF15171A),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.play_disabled_rounded,
+            size: 30,
+            color: Colors.white70,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'This video cannot be played in the app.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onOpenInYouTube,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white54),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            icon: const Icon(Icons.open_in_new_rounded, size: 15),
+            label: const Text(
+              'Watch on YouTube',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TitleBlock extends StatelessWidget {
+  const _TitleBlock({required this.exercise});
+
+  final WorkoutExerciseInfoEntity exercise;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = _exerciseSubtitle(exercise);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -251,7 +578,7 @@ class _TitleBlock extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                details.name,
+                exercise.name,
                 style: const TextStyle(
                   fontSize: 21,
                   fontWeight: FontWeight.w800,
@@ -289,15 +616,17 @@ class _TitleBlock extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          details.subtitle,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w500,
-            color: AppColors.mutedText,
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.mutedText,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -306,7 +635,7 @@ class _TitleBlock extends StatelessWidget {
 class _StatsRow extends StatelessWidget {
   const _StatsRow({required this.details});
 
-  final ExerciseDetailsEntity details;
+  final WorkoutExerciseDetailEntity details;
 
   @override
   Widget build(BuildContext context) {
@@ -316,7 +645,7 @@ class _StatsRow extends StatelessWidget {
           child: _StatCard(
             icon: Icons.layers_rounded,
             label: 'Sets',
-            value: details.sets,
+            value: '${details.sets.length}',
           ),
         ),
         const SizedBox(width: 8),
@@ -324,7 +653,7 @@ class _StatsRow extends StatelessWidget {
           child: _StatCard(
             icon: Icons.sync_rounded,
             label: 'Reps',
-            value: details.reps,
+            value: _repsSummary(details.sets),
           ),
         ),
         const SizedBox(width: 8),
@@ -332,10 +661,169 @@ class _StatsRow extends StatelessWidget {
           child: _StatAssetCard(
             icon: HomeAsset.dumbbell,
             label: 'Rest',
-            value: details.rest,
+            value: _restLabel(_firstRestSeconds(details.sets)),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AboutCard extends StatelessWidget {
+  const _AboutCard({required this.exercise});
+
+  final WorkoutExerciseInfoEntity exercise;
+
+  @override
+  Widget build(BuildContext context) {
+    final tags = [...exercise.muscleGroups, ...exercise.equipment];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEFF1EC)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'About this exercise',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            exercise.description,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.mutedText,
+              height: 1.45,
+            ),
+          ),
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final tag in tags)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F5F2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      tag,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InstructionsCard extends StatelessWidget {
+  const _InstructionsCard({required this.exercise});
+
+  final WorkoutExerciseInfoEntity exercise;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEFF1EC)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'How to perform',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textDark,
+            ),
+          ),
+          for (final (i, step) in exercise.instructions.indexed) ...[
+            const SizedBox(height: 9),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE5F4DC),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${i + 1}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    step,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textDark,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (exercise.planInstructions != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF8E8),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                exercise.planInstructions!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.secondary,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -449,10 +937,30 @@ class _StatAssetCard extends StatelessWidget {
 class _SetsTable extends StatelessWidget {
   const _SetsTable({required this.rows});
 
-  final List<ExerciseSetEntity> rows;
+  final List<WorkoutExerciseSetEntity> rows;
 
   @override
   Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFEFF1EC)),
+        ),
+        child: const Text(
+          'No sets prescribed for this exercise.',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: AppColors.mutedText,
+          ),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -465,13 +973,7 @@ class _SetsTable extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Row(
               children: [
-                SizedBox(
-                  width: 44,
-                  child: Text(
-                    'Set',
-                    style: _headerStyle,
-                  ),
-                ),
+                SizedBox(width: 44, child: Text('Set', style: _headerStyle)),
                 Expanded(
                   flex: 3,
                   child: Center(
@@ -506,7 +1008,7 @@ class _SetsTable extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Text(
-                        '${i + 1}',
+                        '${row.setNumber ?? i + 1}',
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
@@ -517,7 +1019,7 @@ class _SetsTable extends StatelessWidget {
                   ),
                   Expanded(
                     flex: 3,
-                    child: _WeightStepper(weight: row.weightText),
+                    child: _WeightStepper(weight: _weightLabel(row)),
                   ),
                   const SizedBox(width: 10),
                   SizedBox(
@@ -531,7 +1033,7 @@ class _SetsTable extends StatelessWidget {
                         border: Border.all(color: const Color(0xFFE4E9E2)),
                       ),
                       child: Text(
-                        '${row.reps}',
+                        _displayReps(row),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -645,7 +1147,9 @@ class _WeightStepper extends StatelessWidget {
 }
 
 class _RestTimeCard extends StatelessWidget {
-  const _RestTimeCard();
+  const _RestTimeCard({required this.seconds});
+
+  final int seconds;
 
   @override
   Widget build(BuildContext context) {
@@ -668,17 +1172,17 @@ class _RestTimeCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 CircularProgressIndicator(
-                  value: 0.82,
+                  value: 1,
                   strokeWidth: 4,
                   backgroundColor: Colors.white.withValues(alpha: 0.18),
                   valueColor: const AlwaysStoppedAnimation<Color>(
                     Color(0xFFA9DC7E),
                   ),
                 ),
-                const Center(
+                Center(
                   child: Text(
-                    '01:25',
-                    style: TextStyle(
+                    _clockLabel(seconds),
+                    style: const TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -703,7 +1207,7 @@ class _RestTimeCard extends StatelessWidget {
                 ),
                 SizedBox(height: 3),
                 Text(
-                  'Next set: Set 3',
+                  'Between sets',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,

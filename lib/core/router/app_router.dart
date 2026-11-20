@@ -166,11 +166,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // Exercise detail lives above the shell so the bottom bar is hidden.
       GoRoute(
-        path: '${RoutePaths.exerciseDetails}/:day/:index',
+        path: '${RoutePaths.exerciseDetails}/:planExerciseId',
         name: RouteNames.exerciseDetails,
         builder: (context, state) => ExerciseDetailsScreen(
-          day: int.tryParse(state.pathParameters['day'] ?? '') ?? 1,
-          exerciseIndex: int.tryParse(state.pathParameters['index'] ?? '') ?? 0,
+          planExerciseId: state.pathParameters['planExerciseId'] ?? '',
         ),
       ),
       GoRoute(

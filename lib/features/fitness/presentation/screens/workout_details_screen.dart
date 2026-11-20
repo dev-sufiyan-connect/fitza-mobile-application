@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fitza_mobile_application/core/error/failures.dart';
 import 'package:fitza_mobile_application/core/router/route_names.dart';
 import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
-import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/providers/fitness_providers.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/widgets/fitness_assets.dart';
 import 'package:fitza_mobile_application/features/home/presentation/widgets/home_assets.dart';
@@ -18,45 +19,122 @@ class WorkoutDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final details = ref.watch(workoutDetailsProvider(day));
+    final dashboard = ref.watch(fitnessDashboardProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: details.when(
+        child: dashboard.when(
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           ),
-          error: (e, _) => Center(child: Text('$e')),
-          data: (data) => ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            children: [
-              const _TopBar(),
-              const SizedBox(height: 18),
-              _WorkoutHero(details: data),
-              const SizedBox(height: 16),
-              _ProgressCard(
-                completed: 0,
-                total: data.exercises.length,
-              ),
-              const SizedBox(height: 14),
-              for (final (i, exercise) in data.exercises.indexed)
-                _ExerciseRow(
-                  exercise: exercise,
-                  index: i,
-                  onTap: () => context.pushNamed(
-                    RouteNames.exerciseDetails,
-                    pathParameters: {'day': '$day', 'index': '$i'},
-                  ),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                _failureMessage(e),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.mutedText,
                 ),
-              const SizedBox(height: 4),
-              const _WarmUpCard(),
-            ],
+              ),
+            ),
           ),
+          data: (data) {
+            final workoutDay = data.day;
+            final exercises = workoutDay.exercises;
+            final dayNumber = workoutDay.dayNumber ?? day;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              children: [
+                const _TopBar(),
+                const SizedBox(height: 18),
+                _WorkoutHero(
+                  tag: 'DAY ${dayNumber.toString().padLeft(2, '0')}',
+                  title: workoutDay.title.isEmpty
+                      ? 'Workout'
+                      : workoutDay.title,
+                  focus: _focusLabel(workoutDay),
+                ),
+                const SizedBox(height: 16),
+                _ProgressCard(
+                  completed: workoutDay.isCompleted ? exercises.length : 0,
+                  total: exercises.length,
+                ),
+                const SizedBox(height: 14),
+                if (exercises.isEmpty)
+                  const _EmptyWorkoutCard()
+                else
+                  for (final (i, exercise) in exercises.indexed)
+                    _ExerciseRow(
+                      name: exercise.name,
+                      detail: _exerciseSummary(exercise),
+                      index: i,
+                      onTap: () => context.pushNamed(
+                        RouteNames.exerciseDetails,
+                        pathParameters: {
+                          'planExerciseId': exercise.planExerciseId,
+                        },
+                      ),
+                    ),
+                const SizedBox(height: 4),
+                const _WarmUpCard(),
+              ],
+            );
+          },
         ),
       ),
     );
   }
+}
+
+String _failureMessage(Object? error) =>
+    error is Failure ? error.message : '$error';
+
+String _focusLabel(FitnessDayEntity day) {
+  final parts = <String>[
+    if (day.exerciseCount > 0) '${day.exerciseCount} exercises',
+    if (day.status.isNotEmpty) _statusLabel(day.status),
+  ];
+  return parts.join(' · ');
+}
+
+String _statusLabel(String status) {
+  if (status.isEmpty) return '';
+  return status[0].toUpperCase() + status.substring(1);
+}
+
+String _exerciseSummary(FitnessExerciseEntity exercise) {
+  final parts = <String>[];
+  final sets = exercise.sets;
+
+  if (sets.isNotEmpty) {
+    parts.add('${sets.length} ${sets.length == 1 ? 'set' : 'sets'}');
+    final first = sets.first;
+
+    if (first.targetDurationSeconds != null) {
+      parts.add('${first.targetDurationSeconds}s');
+    } else if (first.targetRepsMin != null) {
+      final min = first.targetRepsMin!;
+      final max = first.targetRepsMax;
+      parts.add(max != null && max != min ? '$min–$max reps' : '$min reps');
+    }
+
+    if (first.targetWeightKg != null) {
+      final weight = first.targetWeightKg!;
+      parts.add(
+        '${weight == weight.roundToDouble() ? weight.toInt() : weight} kg',
+      );
+    }
+  }
+
+  if (parts.isEmpty && exercise.description.isNotEmpty) {
+    return exercise.description;
+  }
+  return parts.join(' · ');
 }
 
 class _TopBar extends StatelessWidget {
@@ -98,9 +176,15 @@ class _TopBar extends StatelessWidget {
 }
 
 class _WorkoutHero extends StatelessWidget {
-  const _WorkoutHero({required this.details});
+  const _WorkoutHero({
+    required this.tag,
+    required this.title,
+    required this.focus,
+  });
 
-  final WorkoutDetailsEntity details;
+  final String tag;
+  final String title;
+  final String focus;
 
   @override
   Widget build(BuildContext context) {
@@ -122,14 +206,16 @@ class _WorkoutHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE5F4DC),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  details.tag,
+                  tag,
                   style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
@@ -140,7 +226,7 @@ class _WorkoutHero extends StatelessWidget {
               ),
               const SizedBox(height: 7),
               Text(
-                details.title,
+                title,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -150,7 +236,7 @@ class _WorkoutHero extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                details.focus,
+                focus,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -241,8 +327,9 @@ class _ProgressCard extends StatelessWidget {
               value: total == 0 ? 0 : completed / total,
               minHeight: 6,
               backgroundColor: const Color(0xFFE7F0E2),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
             ),
           ),
         ],
@@ -253,12 +340,14 @@ class _ProgressCard extends StatelessWidget {
 
 class _ExerciseRow extends StatelessWidget {
   const _ExerciseRow({
-    required this.exercise,
+    required this.name,
+    required this.detail,
     required this.index,
     this.onTap,
   });
 
-  final ExerciseEntity exercise;
+  final String name;
+  final String detail;
   final int index;
   final VoidCallback? onTap;
 
@@ -304,7 +393,7 @@ class _ExerciseRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        exercise.name,
+                        name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -316,7 +405,7 @@ class _ExerciseRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        exercise.setsReps,
+                        detail,
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
@@ -328,8 +417,10 @@ class _ExerciseRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEAF5E3),
                     borderRadius: BorderRadius.circular(12),
@@ -363,6 +454,32 @@ class _ExerciseRow extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyWorkoutCard extends StatelessWidget {
+  const _EmptyWorkoutCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEFF1EC)),
+      ),
+      child: const Text(
+        'No exercises are scheduled for this day.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.mutedText,
         ),
       ),
     );

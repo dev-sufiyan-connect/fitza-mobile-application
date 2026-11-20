@@ -15,53 +15,10 @@ class WorkoutDetailsEntity {
 }
 
 class ExerciseEntity {
-  const ExerciseEntity({
-    required this.name,
-    required this.setsReps,
-  });
+  const ExerciseEntity({required this.name, required this.setsReps});
 
   final String name;
   final String setsReps;
-}
-
-class ExerciseDetailsEntity {
-  const ExerciseDetailsEntity({
-    required this.dayLabel,
-    required this.position,
-    required this.total,
-    required this.name,
-    required this.subtitle,
-    required this.sets,
-    required this.reps,
-    required this.rest,
-    required this.setRows,
-  });
-
-  final String dayLabel;
-  final int position;
-  final int total;
-  final String name;
-  final String subtitle;
-  final String sets;
-  final String reps;
-  final String rest;
-  final List<ExerciseSetEntity> setRows;
-}
-
-class ExerciseSetEntity {
-  const ExerciseSetEntity({
-    required this.weight,
-    required this.reps,
-    required this.isCompleted,
-  });
-
-  final double weight;
-  final int reps;
-  final bool isCompleted;
-
-  String get weightText => weight == weight.roundToDouble()
-      ? weight.toInt().toString()
-      : weight.toStringAsFixed(1);
 }
 
 class WorkoutCompletedEntity {
@@ -99,10 +56,7 @@ class WorkoutCompletedEntity {
 }
 
 class CompletedExerciseEntity {
-  const CompletedExerciseEntity({
-    required this.name,
-    required this.detail,
-  });
+  const CompletedExerciseEntity({required this.name, required this.detail});
 
   final String name;
   final String detail;

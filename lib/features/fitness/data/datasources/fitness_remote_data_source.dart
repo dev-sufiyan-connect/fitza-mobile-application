@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitza_mobile_application/core/error/exceptions.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/fitness_dashboard_model.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/weekly_workout_model.dart';
+import 'package:fitza_mobile_application/features/fitness/data/models/workout_exercise_detail_model.dart';
 
 /// Calls the fitness RPCs. Throws [AppException]s only.
 class FitnessRemoteDataSource {
@@ -20,14 +21,15 @@ class FitnessRemoteDataSource {
       );
 
       return switch (response) {
-        final Map<String, dynamic> value =>
-          FitnessDashboardModel.fromMap(value),
+        final Map<String, dynamic> value => FitnessDashboardModel.fromMap(
+          value,
+        ),
         final Map value => FitnessDashboardModel.fromMap(
-            Map<String, dynamic>.from(value),
-          ),
+          Map<String, dynamic>.from(value),
+        ),
         _ => throw const ServerException(
-            'Unexpected fitness dashboard response.',
-          ),
+          'Unexpected fitness dashboard response.',
+        ),
       };
     } on PostgrestException catch (e) {
       throw ServerException(e.message);
@@ -44,14 +46,42 @@ class FitnessRemoteDataSource {
       );
 
       return switch (response) {
-        final Map<String, dynamic> value =>
-          WeeklyWorkoutStatusModel.fromMap(value),
+        final Map<String, dynamic> value => WeeklyWorkoutStatusModel.fromMap(
+          value,
+        ),
         final Map value => WeeklyWorkoutStatusModel.fromMap(
-            Map<String, dynamic>.from(value),
-          ),
+          Map<String, dynamic>.from(value),
+        ),
+        _ => throw const ServerException('Unexpected weekly workout response.'),
+      };
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    }
+  }
+
+  Future<WorkoutExerciseDetailModel> getWorkoutExerciseDetail({
+    required String selectedDate,
+    required String planExerciseId,
+  }) async {
+    try {
+      final response = await _client.rpc(
+        'get_workout_exercise_detail',
+        params: {
+          'p_selected_date': selectedDate,
+          'p_plan_exercise_id': planExerciseId,
+        },
+      );
+
+      return switch (response) {
+        final Map<String, dynamic> value => WorkoutExerciseDetailModel.fromMap(
+          value,
+        ),
+        final Map value => WorkoutExerciseDetailModel.fromMap(
+          Map<String, dynamic>.from(value),
+        ),
         _ => throw const ServerException(
-            'Unexpected weekly workout response.',
-          ),
+          'Unexpected workout exercise detail response.',
+        ),
       };
     } on PostgrestException catch (e) {
       throw ServerException(e.message);

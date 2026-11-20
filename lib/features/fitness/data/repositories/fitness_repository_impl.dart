@@ -3,6 +3,7 @@ import 'package:fitza_mobile_application/core/utils/result.dart';
 import 'package:fitza_mobile_application/features/fitness/data/datasources/fitness_remote_data_source.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/repositories/fitness_repository.dart';
 
 /// Production implementation of [FitnessRepository].
@@ -34,6 +35,22 @@ class FitnessRepositoryImpl implements FitnessRepository {
     try {
       final model = await _remoteDataSource.getWeeklyWorkoutStatus(
         selectedDate: selectedDate,
+      );
+      return Success(model.toEntity());
+    } catch (e) {
+      return FailureResult(e.toFailure());
+    }
+  }
+
+  @override
+  Future<Result<WorkoutExerciseDetailEntity>> getWorkoutExerciseDetail({
+    required String selectedDate,
+    required String planExerciseId,
+  }) async {
+    try {
+      final model = await _remoteDataSource.getWorkoutExerciseDetail(
+        selectedDate: selectedDate,
+        planExerciseId: planExerciseId,
       );
       return Success(model.toEntity());
     } catch (e) {

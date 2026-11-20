@@ -7,8 +7,10 @@ import 'package:fitza_mobile_application/features/fitness/data/repositories/fitn
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_fitness_dashboard_usecase.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_weekly_workout_status_usecase.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_workout_exercise_detail_usecase.dart';
 
 // ---------------------------------------------------------------------------
 // DI composition
@@ -30,6 +32,11 @@ final getFitnessDashboardUseCaseProvider =
 final getWeeklyWorkoutStatusUseCaseProvider =
     Provider<GetWeeklyWorkoutStatusUseCase>(
   (ref) => GetWeeklyWorkoutStatusUseCase(ref.watch(fitnessRepositoryProvider)),
+);
+
+final getWorkoutExerciseDetailUseCaseProvider =
+    Provider<GetWorkoutExerciseDetailUseCase>(
+  (ref) => GetWorkoutExerciseDetailUseCase(ref.watch(fitnessRepositoryProvider)),
 );
 
 // ---------------------------------------------------------------------------
@@ -92,9 +99,25 @@ final weeklyWorkoutStatusProvider =
   );
 });
 
+/// Single exercise details, including the prescribed sets for the selected
+/// workout date.
+final workoutExerciseDetailProvider = FutureProvider.family<
+    WorkoutExerciseDetailEntity,
+    ({String selectedDate, String planExerciseId})>((ref, key) async {
+  final result = await ref.watch(getWorkoutExerciseDetailUseCaseProvider)(
+    selectedDate: key.selectedDate,
+    planExerciseId: key.planExerciseId,
+  );
+
+  return result.when(
+    onSuccess: (details) => details,
+    onFailure: (failure) => throw failure,
+  );
+});
+
 // ---------------------------------------------------------------------------
-// Workout details / completion (still mock data)
-// TODO: replace with per-workout RPCs once those endpoints exist.
+// Workout completion (still mock data)
+// TODO: replace with completion/session RPCs once those endpoints exist.
 // ---------------------------------------------------------------------------
 
 const _workoutTitles = [
@@ -130,47 +153,6 @@ final workoutDetailsProvider =
     title: _workoutTitles[index],
     focus: 'Push day · ${_dayOneExercises.length} exercises',
     exercises: _dayOneExercises,
-  );
-});
-
-const _exerciseMuscles = [
-  'Upper Chest · Dumbbell',
-  'Shoulders · Dumbbell',
-  'Chest · Cable',
-  'Shoulders · Dumbbell',
-  'Triceps · Cable',
-  'Core · Cable',
-  'Neck · Bodyweight',
-];
-
-const _exerciseSets = [
-  ExerciseSetEntity(weight: 20, reps: 10, isCompleted: true),
-  ExerciseSetEntity(weight: 20, reps: 9, isCompleted: true),
-  ExerciseSetEntity(weight: 22.5, reps: 8, isCompleted: false),
-];
-
-/// Details for one exercise inside a workout day.
-/// [index] is 0-based within the day's exercise list.
-final exerciseDetailsProvider =
-    FutureProvider.family<ExerciseDetailsEntity, ({int day, int index})>(
-        (ref, key) async {
-  await Future<void>.delayed(const Duration(milliseconds: 250));
-
-  final workout = await ref.watch(workoutDetailsProvider(key.day).future);
-  final exercises = workout.exercises;
-  final index = key.index.clamp(0, exercises.length - 1);
-
-  return ExerciseDetailsEntity(
-    dayLabel:
-        'Day ${key.day.toString().padLeft(2, '0')} · ${workout.title}',
-    position: index + 1,
-    total: exercises.length,
-    name: exercises[index].name,
-    subtitle: _exerciseMuscles[index % _exerciseMuscles.length],
-    sets: '3',
-    reps: '8 – 10',
-    rest: '90 sec',
-    setRows: _exerciseSets,
   );
 });
 

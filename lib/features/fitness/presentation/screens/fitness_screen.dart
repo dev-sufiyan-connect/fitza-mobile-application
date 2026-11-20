@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:fitza_mobile_application/core/error/failures.dart';
+import 'package:fitza_mobile_application/core/router/route_names.dart';
 import 'package:fitza_mobile_application/core/theme/app_colors.dart';
 import 'package:fitza_mobile_application/core/utils/date_utils.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
@@ -63,7 +65,12 @@ class _FitnessScreenState extends ConsumerState<FitnessScreen> {
             onSelected: (i) => setState(() => _selectedFilter = i),
           ),
           const SizedBox(height: 18),
-          _HeroCard(day: dayData.day),
+          _HeroCard(
+            day: dayData.day,
+            onStart: dayData.day.dayNumber == null
+                ? null
+                : () => _openWorkout(context, dayData.day),
+          ),
           const SizedBox(height: 26),
           const _SectionHeader(title: 'This Week', action: 'View Plan'),
           const SizedBox(height: 12),
@@ -79,13 +86,25 @@ class _FitnessScreenState extends ConsumerState<FitnessScreen> {
           const SizedBox(height: 24),
           const _SectionTitle('Workout Plan'),
           const SizedBox(height: 12),
-          _SelectedDayCard(day: dayData.day),
+          _SelectedDayCard(
+            day: dayData.day,
+            onTap: dayData.day.dayNumber == null
+                ? null
+                : () => _openWorkout(context, dayData.day),
+          ),
           const SizedBox(height: 10),
           if (dayData.day.exercises.isEmpty)
             _EmptyDayCard(status: dayData.day.status)
           else
             for (final (i, exercise) in dayData.day.exercises.indexed) ...[
-              _ExerciseCard(exercise: exercise, index: i),
+              _ExerciseCard(
+                exercise: exercise,
+                index: i,
+                onTap: dayData.day.dayNumber == null ||
+                        exercise.planExerciseId.isEmpty
+                    ? null
+                    : () => _openExercise(context, exercise),
+              ),
               const SizedBox(height: 8),
             ],
         ],
@@ -101,6 +120,23 @@ class _FitnessScreenState extends ConsumerState<FitnessScreen> {
 
 String _failureMessage(Object? error) =>
     error is Failure ? error.message : '$error';
+
+void _openWorkout(BuildContext context, FitnessDayEntity day) {
+  final dayNumber = day.dayNumber;
+  if (dayNumber == null) return;
+  context.pushNamed(
+    RouteNames.fitnessWorkout,
+    pathParameters: {'day': '$dayNumber'},
+  );
+}
+
+void _openExercise(BuildContext context, FitnessExerciseEntity exercise) {
+  if (exercise.planExerciseId.isEmpty) return;
+  context.pushNamed(
+    RouteNames.exerciseDetails,
+    pathParameters: {'planExerciseId': exercise.planExerciseId},
+  );
+}
 
 String _weekdayShort(String isoDate) {
   final date = DateTime.tryParse(isoDate);
@@ -233,9 +269,10 @@ class _FilterChips extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.day});
+  const _HeroCard({required this.day, this.onStart});
 
   final FitnessDayEntity day;
+  final VoidCallback? onStart;
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +359,7 @@ class _HeroCard extends StatelessWidget {
                 ),
                 if (!isRest) ...[
                   const SizedBox(height: 12),
-                  const _StartWorkoutButton(),
+                  _StartWorkoutButton(onTap: onStart),
                 ],
               ],
             ),
@@ -334,7 +371,9 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _StartWorkoutButton extends StatelessWidget {
-  const _StartWorkoutButton();
+  const _StartWorkoutButton({this.onTap});
+
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +381,7 @@ class _StartWorkoutButton extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 13, vertical: 8),
@@ -638,93 +677,110 @@ class _WeekDayChip extends StatelessWidget {
 }
 
 class _SelectedDayCard extends StatelessWidget {
-  const _SelectedDayCard({required this.day});
+  const _SelectedDayCard({required this.day, this.onTap});
 
   final FitnessDayEntity day;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final isRest = day.isRest;
     final count = day.exerciseCount;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: isRest
-              ? const [Color(0xFFF4F6F2), Color(0xFFEDF1EA)]
-              : const [Color(0xFFEFF8E8), Color(0xFFDFF2D0)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(13),
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: isRest
+                  ? const [Color(0xFFF4F6F2), Color(0xFFEDF1EA)]
+                  : const [Color(0xFFEFF8E8), Color(0xFFDFF2D0)],
             ),
-            child: isRest
-                ? const Icon(
-                    Icons.spa_rounded,
-                    size: 22,
-                    color: AppColors.primary,
-                  )
-                : const AssetIcon(
-                    HomeAsset.dumbbell,
-                    size: 22,
-                    color: AppColors.primary,
-                  ),
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: isRest
+                    ? const Icon(
+                        Icons.spa_rounded,
+                        size: 22,
+                        color: AppColors.primary,
+                      )
+                    : const AssetIcon(
+                        HomeAsset.dumbbell,
+                        size: 22,
+                        color: AppColors.primary,
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        isRest
-                            ? 'Rest Day'
-                            : day.title.isNotEmpty
-                            ? day.title
-                            : 'Workout',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textDark,
-                          height: 1.2,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            isRest
+                                ? 'Rest Day'
+                                : day.title.isNotEmpty
+                                ? day.title
+                                : 'Workout',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textDark,
+                              height: 1.2,
+                            ),
+                          ),
                         ),
+                        const SizedBox(width: 8),
+                        _StatusBadge(status: day.status),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isRest
+                          ? 'Recovery day · no exercises'
+                          : '$count ${count == 1 ? 'exercise' : 'exercises'} '
+                                'in this session',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.mutedText,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _StatusBadge(status: day.status),
                   ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  isRest
-                      ? 'Recovery day · no exercises'
-                      : '$count ${count == 1 ? 'exercise' : 'exercises'} '
-                            'in this session',
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.mutedText,
-                  ),
+              ),
+              if (!isRest) ...[
+                const SizedBox(width: 8),
+                const AssetIcon(
+                  HomeAsset.chevronRight,
+                  size: 18,
+                  color: AppColors.mutedText,
                 ),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -763,77 +819,97 @@ class _StatusBadge extends StatelessWidget {
 }
 
 class _ExerciseCard extends StatelessWidget {
-  const _ExerciseCard({required this.exercise, required this.index});
+  const _ExerciseCard({
+    required this.exercise,
+    required this.index,
+    this.onTap,
+  });
 
   final FitnessExerciseEntity exercise;
   final int index;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final summary = _exerciseSummary(exercise);
 
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEFF1EC)),
-      ),
-      child: Row(
-        children: [
-          _ExerciseThumbnail(exercise: exercise, index: index),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exercise.name.isNotEmpty ? exercise.name : 'Exercise',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFEFF1EC)),
+          ),
+          child: Row(
+            children: [
+              _ExerciseThumbnail(exercise: exercise, index: index),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.name.isNotEmpty ? exercise.name : 'Exercise',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (summary.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        summary,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.mutedText,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEAF5E3),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${index + 1}',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.textDark,
-                    height: 1.2,
+                    color: AppColors.secondary,
                   ),
                 ),
-                if (summary.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    summary,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.mutedText,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEAF5E3),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '${index + 1}',
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w800,
-                color: AppColors.secondary,
               ),
-            ),
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                const AssetIcon(
+                  HomeAsset.chevronRight,
+                  size: 18,
+                  color: AppColors.mutedText,
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
