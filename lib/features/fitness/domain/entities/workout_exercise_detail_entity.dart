@@ -2,6 +2,7 @@
 /// Pure business objects — no Flutter imports.
 class WorkoutExerciseDetailEntity {
   const WorkoutExerciseDetailEntity({
+    required this.sessionId,
     required this.selectedDate,
     required this.workoutDayNumber,
     required this.workoutTitle,
@@ -11,6 +12,9 @@ class WorkoutExerciseDetailEntity {
     required this.sets,
   });
 
+  /// Active workout session this exercise belongs to. Empty when the RPC
+  /// did not return one.
+  final String sessionId;
   final String selectedDate;
   final int workoutDayNumber;
   final String workoutTitle;

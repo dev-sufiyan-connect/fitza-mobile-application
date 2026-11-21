@@ -3,6 +3,7 @@ import 'package:fitza_mobile_application/core/utils/result.dart';
 import 'package:fitza_mobile_application/features/fitness/data/datasources/fitness_remote_data_source.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/exercise_workout_history_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/mark_workout_exercise_complete_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/repositories/fitness_repository.dart';
@@ -52,6 +53,28 @@ class FitnessRepositoryImpl implements FitnessRepository {
       final model = await _remoteDataSource.getWorkoutExerciseDetail(
         selectedDate: selectedDate,
         planExerciseId: planExerciseId,
+      );
+      return Success(model.toEntity());
+    } catch (e) {
+      return FailureResult(e.toFailure());
+    }
+  }
+
+  @override
+  Future<Result<MarkWorkoutExerciseCompleteEntity>> markWorkoutExerciseComplete({
+    required String sessionId,
+    required String planExerciseId,
+    required List<WorkoutSetLogEntity> sets,
+    String? exerciseNotes,
+    String? sessionNote,
+  }) async {
+    try {
+      final model = await _remoteDataSource.markWorkoutExerciseComplete(
+        sessionId: sessionId,
+        planExerciseId: planExerciseId,
+        sets: sets,
+        exerciseNotes: exerciseNotes,
+        sessionNote: sessionNote,
       );
       return Success(model.toEntity());
     } catch (e) {

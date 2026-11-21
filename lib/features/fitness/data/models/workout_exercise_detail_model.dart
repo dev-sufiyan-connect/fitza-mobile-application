@@ -15,8 +15,10 @@ class WorkoutExerciseDetailModel {
   WorkoutExerciseDetailEntity toEntity() {
     final exercise = _map(_json['exercise']);
     final category = _map(exercise['category']);
+    final session = _map(_json['session']);
 
     return WorkoutExerciseDetailEntity(
+      sessionId: _sessionId(session),
       selectedDate: _string(_json['selected_date']),
       workoutDayNumber: _int(_json['workout_day_number']),
       workoutTitle: _string(_json['workout_title']),
@@ -57,6 +59,20 @@ class WorkoutExerciseDetailModel {
       actualRpe: _doubleOrNull(json['actual_rpe']),
       isCompleted: _bool(json['is_completed']),
     );
+  }
+
+  /// Accepts every shape the RPC may use for the active session id.
+  String _sessionId(Map<String, dynamic> session) {
+    for (final candidate in [
+      _json['session_id'],
+      _json['active_session_id'],
+      session['session_id'],
+      session['id'],
+    ]) {
+      final value = _string(candidate);
+      if (value.isNotEmpty) return value;
+    }
+    return '';
   }
 
   Map<String, dynamic> _map(Object? value) {

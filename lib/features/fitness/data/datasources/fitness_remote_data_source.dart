@@ -3,8 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitza_mobile_application/core/error/exceptions.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/exercise_workout_history_model.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/fitness_dashboard_model.dart';
+import 'package:fitza_mobile_application/features/fitness/data/models/mark_workout_exercise_complete_model.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/weekly_workout_model.dart';
 import 'package:fitza_mobile_application/features/fitness/data/models/workout_exercise_detail_model.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/mark_workout_exercise_complete_entity.dart';
 
 /// Calls the fitness RPCs. Throws [AppException]s only.
 class FitnessRemoteDataSource {
@@ -82,6 +84,49 @@ class FitnessRemoteDataSource {
         ),
         _ => throw const ServerException(
           'Unexpected workout exercise detail response.',
+        ),
+      };
+    } on PostgrestException catch (e) {
+      throw ServerException(e.message);
+    }
+  }
+
+  Future<MarkWorkoutExerciseCompleteModel> markWorkoutExerciseComplete({
+    required String sessionId,
+    required String planExerciseId,
+    required List<WorkoutSetLogEntity> sets,
+    String? exerciseNotes,
+    String? sessionNote,
+  }) async {
+    try {
+      final response = await _client.rpc(
+        'mark_workout_exercise_complete',
+        params: {
+          'p_session_id': sessionId,
+          'p_plan_exercise_id': planExerciseId,
+          'p_exercise_notes': exerciseNotes,
+          'p_session_note': sessionNote,
+          'p_sets': [
+            for (final set in sets)
+              {
+                'set_number': set.setNumber,
+                'actual_weight_kg': set.actualWeightKg,
+                'actual_reps': set.actualReps,
+                'is_completed': set.isCompleted,
+                'notes': set.notes,
+              },
+          ],
+        },
+      );
+
+      return switch (response) {
+        final Map<String, dynamic> value =>
+          MarkWorkoutExerciseCompleteModel.fromMap(value),
+        final Map value => MarkWorkoutExerciseCompleteModel.fromMap(
+          Map<String, dynamic>.from(value),
+        ),
+        _ => throw const ServerException(
+          'Unexpected workout exercise completion response.',
         ),
       };
     } on PostgrestException catch (e) {

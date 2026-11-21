@@ -1,6 +1,7 @@
 import 'package:fitza_mobile_application/core/utils/result.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/exercise_workout_history_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/mark_workout_exercise_complete_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 
@@ -17,6 +18,14 @@ abstract interface class FitnessRepository {
   Future<Result<WorkoutExerciseDetailEntity>> getWorkoutExerciseDetail({
     required String selectedDate,
     required String planExerciseId,
+  });
+
+  Future<Result<MarkWorkoutExerciseCompleteEntity>> markWorkoutExerciseComplete({
+    required String sessionId,
+    required String planExerciseId,
+    required List<WorkoutSetLogEntity> sets,
+    String? exerciseNotes,
+    String? sessionNote,
   });
 
   Future<Result<ExerciseWorkoutHistoryEntity>> getExerciseWorkoutHistory({

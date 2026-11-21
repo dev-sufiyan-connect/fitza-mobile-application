@@ -7,12 +7,14 @@ import 'package:fitza_mobile_application/features/fitness/data/repositories/fitn
 import 'package:fitza_mobile_application/features/fitness/domain/entities/exercise_workout_history_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_dashboard_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/fitness_entity.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/mark_workout_exercise_complete_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/weekly_workout_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_exercise_workout_history_usecase.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_fitness_dashboard_usecase.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_weekly_workout_status_usecase.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/usecases/get_workout_exercise_detail_usecase.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/usecases/mark_workout_exercise_complete_usecase.dart';
 
 // ---------------------------------------------------------------------------
 // DI composition
@@ -44,6 +46,13 @@ final getWorkoutExerciseDetailUseCaseProvider =
 final getExerciseWorkoutHistoryUseCaseProvider =
     Provider<GetExerciseWorkoutHistoryUseCase>(
   (ref) => GetExerciseWorkoutHistoryUseCase(ref.watch(fitnessRepositoryProvider)),
+);
+
+final markWorkoutExerciseCompleteUseCaseProvider =
+    Provider<MarkWorkoutExerciseCompleteUseCase>(
+  (ref) => MarkWorkoutExerciseCompleteUseCase(
+    ref.watch(fitnessRepositoryProvider),
+  ),
 );
 
 // ---------------------------------------------------------------------------
@@ -157,6 +166,56 @@ final exerciseWorkoutHistoryProvider = AsyncNotifierProvider.family<
     ExerciseWorkoutHistoryController,
     ExerciseWorkoutHistoryEntity?,
     String>(ExerciseWorkoutHistoryController.new);
+
+/// Saves one exercise of the active session. Idle until [submit] is called.
+class MarkWorkoutExerciseCompleteController
+    extends AsyncNotifier<MarkWorkoutExerciseCompleteEntity?> {
+  MarkWorkoutExerciseCompleteController(this.planExerciseId);
+
+  final String planExerciseId;
+
+  @override
+  Future<MarkWorkoutExerciseCompleteEntity?> build() async => null;
+
+  /// Returns the saved result, or `null` when the call failed — the error is
+  /// exposed through this provider's [AsyncValue].
+  Future<MarkWorkoutExerciseCompleteEntity?> submit({
+    required String sessionId,
+    required List<WorkoutSetLogEntity> sets,
+    String? exerciseNotes,
+    String? sessionNote,
+  }) async {
+    if (state.isLoading) return null;
+
+    state = const AsyncLoading();
+
+    final result = await ref.read(markWorkoutExerciseCompleteUseCaseProvider)(
+      sessionId: sessionId,
+      planExerciseId: planExerciseId,
+      sets: sets,
+      exerciseNotes: exerciseNotes,
+      sessionNote: sessionNote,
+    );
+
+    if (!ref.mounted) return null;
+
+    return result.when(
+      onSuccess: (value) {
+        state = AsyncData(value);
+        return value;
+      },
+      onFailure: (failure) {
+        state = AsyncError(failure, StackTrace.current);
+        return null;
+      },
+    );
+  }
+}
+
+final markWorkoutExerciseCompleteProvider = AsyncNotifierProvider.family<
+    MarkWorkoutExerciseCompleteController,
+    MarkWorkoutExerciseCompleteEntity?,
+    String>(MarkWorkoutExerciseCompleteController.new);
 
 // ---------------------------------------------------------------------------
 // Workout completion (still mock data)

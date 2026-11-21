@@ -11,6 +11,7 @@ import 'package:fitza_mobile_application/core/utils/date_utils.dart';
 import 'package:fitza_mobile_application/core/utils/youtube_utils.dart';
 import 'package:fitza_mobile_application/core/widgets/asset_icon.dart';
 import 'package:fitza_mobile_application/core/widgets/shimmer.dart';
+import 'package:fitza_mobile_application/features/fitness/domain/entities/mark_workout_exercise_complete_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/domain/entities/workout_exercise_detail_entity.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/providers/fitness_providers.dart';
 import 'package:fitza_mobile_application/features/fitness/presentation/widgets/exercise_workout_history_section.dart';
@@ -110,7 +111,7 @@ class ExerciseDetailsScreen extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: _BottomActions(day: data.workoutDayNumber),
+                child: _BottomActions(details: data),
               ),
             ],
           ),
@@ -1286,13 +1287,115 @@ class _NotesField extends StatelessWidget {
   }
 }
 
-class _BottomActions extends StatelessWidget {
-  const _BottomActions({required this.day});
+/// Sets sent to the completion RPC: the logged values when present, otherwise
+/// the prescribed targets.
+List<WorkoutSetLogEntity> _loggedSets(List<WorkoutExerciseSetEntity> sets) {
+  return [
+    for (final (i, set) in sets.indexed)
+      WorkoutSetLogEntity(
+        setNumber: set.setNumber ?? i + 1,
+        actualWeightKg: set.actualWeightKg ?? set.targetWeightKg,
+        actualReps: set.actualReps ?? set.targetRepsMax ?? set.targetRepsMin,
+        isCompleted: true,
+        notes: null,
+      ),
+  ];
+}
 
-  final int day;
+/// Plan exercise that follows [planExerciseId] in today's workout, or `null`
+/// when it is the last one (or the workout list cannot be loaded).
+Future<String?> _nextPlanExerciseId(WidgetRef ref, String planExerciseId) async {
+  try {
+    final dashboard = await ref.read(fitnessDashboardProvider.future);
+    final exercises = dashboard.day.exercises;
+    final index = exercises.indexWhere(
+      (exercise) => exercise.planExerciseId == planExerciseId,
+    );
+    if (index < 0 || index + 1 >= exercises.length) return null;
+    return exercises[index + 1].planExerciseId;
+  } catch (_) {
+    return null;
+  }
+}
+
+void _showMessage(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+}
+
+class _BottomActions extends ConsumerWidget {
+  const _BottomActions({required this.details});
+
+  final WorkoutExerciseDetailEntity details;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = markWorkoutExerciseCompleteProvider(
+      details.exercise.planExerciseId,
+    );
+    final isSubmitting = ref.watch(provider).isLoading;
+
+    Future<void> markAsComplete() async {
+      if (isSubmitting) return;
+
+      if (details.sessionId.isEmpty) {
+        _showMessage(
+          context,
+          'No active workout session found for this exercise.',
+        );
+        return;
+      }
+
+      final nextPlanExerciseIdFuture = _nextPlanExerciseId(
+        ref,
+        details.exercise.planExerciseId,
+      );
+
+      final saved = await ref.read(provider.notifier).submit(
+        sessionId: details.sessionId,
+        sets: _loggedSets(details.sets),
+      );
+      final nextPlanExerciseId = await nextPlanExerciseIdFuture;
+
+      if (!context.mounted) return;
+
+      if (saved == null) {
+        final error = ref.read(provider).error;
+        _showMessage(
+          context,
+          error is Failure
+              ? error.message
+              : 'Could not save this exercise. Please try again.',
+        );
+        return;
+      }
+
+      // The day's progress changed — refresh the dashboard and weekly status.
+      ref.invalidate(fitnessDashboardProvider);
+      ref.invalidate(weeklyWorkoutStatusProvider);
+
+      if (nextPlanExerciseId != null && !saved.isWorkoutFinished) {
+        context.pushReplacementNamed(
+          RouteNames.exerciseDetails,
+          pathParameters: {'planExerciseId': nextPlanExerciseId},
+        );
+      } else {
+        context.pushReplacementNamed(
+          RouteNames.workoutCompleted,
+          pathParameters: {'day': '${details.workoutDayNumber}'},
+        );
+      }
+    }
+
     return Row(
       children: [
         Expanded(
@@ -1337,19 +1440,28 @@ class _BottomActions extends StatelessWidget {
               color: AppColors.secondary,
               borderRadius: BorderRadius.circular(24),
               child: InkWell(
-                onTap: () => context.pushNamed(
-                  RouteNames.workoutCompleted,
-                  pathParameters: {'day': '$day'},
-                ),
+                onTap: isSubmitting ? null : markAsComplete,
                 borderRadius: BorderRadius.circular(24),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.check, size: 18, color: Colors.white),
-                    SizedBox(width: 6),
+                    if (isSubmitting)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    else
+                      const Icon(Icons.check, size: 18, color: Colors.white),
+                    const SizedBox(width: 6),
                     Text(
-                      'Mark as Complete',
-                      style: TextStyle(
+                      isSubmitting ? 'Saving…' : 'Mark as Complete',
+                      style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
